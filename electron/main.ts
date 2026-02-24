@@ -1,7 +1,8 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import { loginWithGoogle, getUserInfo, isAlreadyLoggedIn, logoutGoogle } from './services/googleAuthService'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -63,6 +64,23 @@ app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow()
   }
+})
+
+ipcMain.handle("google-login", async () => {
+  const result = await loginWithGoogle();
+  return result;
+});
+
+ipcMain.handle("google-get-user", async () => {
+  return await getUserInfo();
+});
+
+ipcMain.handle("google-is-logged-in", () => {
+  return isAlreadyLoggedIn();
+})
+
+ipcMain.handle("google-logout", async () => {
+  return await logoutGoogle();
 })
 
 app.whenReady().then(createWindow)

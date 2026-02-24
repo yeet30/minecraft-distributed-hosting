@@ -1,92 +1,26 @@
-# =========================
-# Node
-# =========================
-node_modules/
+# Logs
+logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+lerna-debug.log*
 
-# =========================
-# Build outputs
-# =========================
-dist/
-dist-electron/
-out/
-release/
-build/
+node_modules
+dist
+dist-ssr
+*.local
 
-# Electron builder
-*.exe
-*.dmg
-*.AppImage
-*.deb
-*.snap
-
-# =========================
-# Vite
-# =========================
-.vite/
-
-# =========================
-# TypeScript
-# =========================
-*.tsbuildinfo
-
-# =========================
-# Environment variables
-# =========================
-.env
-.env.local
-.env.*.local
-
-# =========================
-# Logs
-# =========================
-logs/
-*.log
-
-# =========================
-# OS files
-# =========================
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
 .DS_Store
-Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
-# =========================
-# IDEs
-# =========================
-
-# VSCode
-.vscode/
-
-# JetBrains
-.idea/
-
-# =========================
-# Electron runtime data
-# =========================
-userData/
-*.db
-*.sqlite
-
-# =========================
-# Temporary files
-# =========================
-tmp/
-temp/
-
-# =========================
-# Coverage
-# =========================
-coverage/
-
-# =========================
-# Mac
-# =========================
-*.swp
-*.swo
-
-# =========================
-# Linux
-# =========================
-*~
+config
