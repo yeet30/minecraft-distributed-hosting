@@ -140,7 +140,12 @@ export async function getUserInfo() {
     }
   );
 
-  return await res.json();
+  const data= await res.json();
+  
+  return {
+    name: data.name,
+    picture: data.picture
+  }
 }
 
 export function isAlreadyLoggedIn(){

@@ -1,0 +1,21 @@
+#main-section{
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+    width: 100%;
+}
+
+#menu-section{
+    width: 15%;
+    height: 100%;
+}
+
+#greeting-section{
+    width: 70%;
+    height: 100%;
+}
+
+#members-section{
+    width: 15%;
+    height: 100%;
+}

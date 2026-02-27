@@ -1,14 +1,24 @@
 import { useEffect, useState} from 'react';
 import { useNavigate } from 'react-router-dom';
 import './main-page.css'
+import GreetingSection from "../../components/greeting-section"
+import BurgerMenu from '../../components/burger-menu';
+import MembersSection from '../../components/members-section';
 
 export default function MainPage(){
-    
+
     const navigate = useNavigate();
 
-    const [name,setName] = useState('');
     const [loadingUser,setLoadingUser] = useState(false);
-    const [loggingOut,setLoggingOut] = useState(false);
+    const [userProps,setUserProps] = useState({
+        name: '',
+        picture: ""
+    })
+
+    const greetingProps = {
+        userProps: userProps,
+        loadingUser: loadingUser
+    }
 
     useEffect(() =>{
         async function checkLoggedIn(){
@@ -18,34 +28,28 @@ export default function MainPage(){
         async function loadUser(){
             setLoadingUser(true)
             const user = await window.ipcRenderer.invoke("google-get-user")
-            setName(user.name);
+            setUserProps({
+                name: user.name,
+                picture: user.picture
+            });
             setLoadingUser(false)
         }
         checkLoggedIn();
         loadUser();
     },[])
 
-    async function handleLogout(){
-        setLoggingOut(true)    
-        const response = await window.ipcRenderer.invoke("google-logout")
-        setLoggingOut(false)
-        if(response.success) 
-            navigate("/")
-    }
 
     return (
-        <>
-            <section id="greeting-section">
-                {loadingUser
-                    ? <p>Loading user information...</p>
-                    : <h1>Welcome, {name}!</h1>
-                }
-                {loggingOut && (
-                    <p>Logging out...</p>
-                )}
-                <button onClick={handleLogout} disabled={loggingOut}>Log out</button>
+        <section id="main-section">
+            <section id='members-section'>
+                <MembersSection/>
             </section>
-            
-        </>
+            <section id='greeting-section'>
+                <GreetingSection {...greetingProps}/>
+            </section>
+            <section id='menu-section'>
+                <BurgerMenu {...userProps}/>
+            </section>
+        </section>
     )
 }

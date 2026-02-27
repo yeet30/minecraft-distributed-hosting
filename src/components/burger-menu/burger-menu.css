@@ -1,0 +1,109 @@
+#wrapper{
+    height: 600px ;
+}
+
+#menu-clicker{
+    position: absolute;
+    right: 5px;
+    top: 10px;
+    border-style: solid;
+    border-radius: 50px;
+    border-width: 1px;
+    width: 85px;
+    height: 40px;
+    display: flex;
+    cursor: pointer;
+    padding: 1px;
+    z-index: 100;
+    transition: width 0.3s ease;
+    overflow: hidden;
+}
+
+#menu-clicker.open{
+    width: 185px;
+    background-color: #1e1e1e;
+}
+
+#profile-picture{
+    border-radius: 50%;
+}
+
+#settings-span{
+    position: relative;
+    top: 8px;
+    left: 20px;
+    opacity: 0;
+}
+
+#settings-span.open{
+    opacity: 1;
+    transition: opacity 0.3s ease 0.1s;
+}
+
+#hamburger-icon{
+    position: fixed;
+    right: 5px;
+    top: 10px;
+    font-size: 30px;
+    min-width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border-width:1;
+    line-height:1;
+    align-content: center;
+}
+
+#drawer{
+    position: fixed;
+    top: 5px;
+    right: 0px;
+    height: 55px;
+    width: 100px;
+    border-radius: 20px;
+    background-color: #1e1e1e;
+    transition: width 0.3s ease, height 0.3s ease;
+    z-index: 98;
+    overflow: hidden;
+}
+
+#menu-clicker:hover ~ #drawer.close {
+    transform: scale(1.1);
+    transition: width 0.3s ease, height 0.3s ease;
+    z-index: 98;
+    overflow: hidden;
+}
+
+#drawer.open {
+    border-radius: 5px;
+    width: 200px;
+    height: 250px;
+    right: 0px;
+}
+
+#drawer ul {
+    list-style: none;
+    padding: 20px;
+    padding-top: 60px;
+    margin: 0;
+}
+
+#drawer ul li {
+    width: 100%;
+    padding: 10px 0px;
+    text-align: center;
+    cursor: pointer;
+    color: white;
+}
+
+#drawer ul li:hover {
+    color: #aaa;
+}
+
+#burger-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 97;
+}
