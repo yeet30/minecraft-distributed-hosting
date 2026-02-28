@@ -89,8 +89,9 @@
 
 #drawer ul li {
     width: 100%;
-    padding: 10px 0px;
-    text-align: center;
+    padding-top: 15px;
+    padding-left: 30px;
+    text-align: left;
     cursor: pointer;
     color: white;
 }

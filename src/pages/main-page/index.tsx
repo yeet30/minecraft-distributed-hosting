@@ -48,7 +48,7 @@ export default function MainPage(){
                 <GreetingSection {...greetingProps}/>
             </section>
             <section id='menu-section'>
-                <BurgerMenu {...userProps}/>
+                <BurgerMenu picture={userProps.picture}/>
             </section>
         </section>
     )
