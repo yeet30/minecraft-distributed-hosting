@@ -224,7 +224,7 @@ async function listAllInFolder(client: OAuth2Client, folderId: string) {
 
   const url =
     `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}`
-    + `&fields=files(id,name,mimeType),nextPageToken`
+    + `&fields=files(id,name,mimeType,modifiedTime,size),nextPageToken`
     + `&supportsAllDrives=true`
     + `&includeItemsFromAllDrives=true`;
 
@@ -289,34 +289,27 @@ async function downloadFile( client:OAuth2Client, fileId:string){
 }
 
 async function downloadFolderRecursive(client: OAuth2Client, folderId: string, localPath: string) {
-  
   const items = await listAllInFolder(client, folderId);
 
   console.log("Items found:", items.length);
 
   for (const item of items) {
-
     const itemPath = path.join(localPath, item.name);
 
     if (item.mimeType === "application/vnd.google-apps.folder") {
-
-      // Create local folder
       if (!fs.existsSync(itemPath))
         fs.mkdirSync(itemPath);
 
-      // Recurse into subfolder
       await downloadFolderRecursive(client, item.id, itemPath);
-    } 
-    
-    else {
-      // It's a file → download
-      const data = await downloadFile(client, item.id);
-
-      fs.writeFileSync(itemPath, data);
+    } else {
+      if (shouldDownloadFile(itemPath, item)) {
+        console.log("Downloading changed file:", item.name);
+        const data = await downloadFile(client, item.id);
+        fs.writeFileSync(itemPath, data);
+      } else {
+        console.log("Skipping unchanged file:", item.name);
+      }
     }
-
-    console.log("Item:", item.name, item.mimeType);
-
   }
 }
 
@@ -350,11 +343,19 @@ async function uploadFile(client: OAuth2Client, localFilePath: string, parentId:
   const fileName = path.basename(localFilePath);
   const fileBuffer = fs.readFileSync(localFilePath);
 
-  // Check if file already exists in the folder to update instead of duplicate
+  // Fetch existing file with modifiedTime and size for comparison
   const query = `'${parentId}' in parents and name='${fileName}' and trashed=false`;
-  const checkUrl = `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}&fields=files(id)`;
+  const checkUrl = `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}&fields=files(id,modifiedTime,size)`;
   const checkRes = await authorizedFetch(client, checkUrl, { method: "GET" });
   const existing = checkRes.files?.[0];
+
+  // Skip if file hasn't changed
+  if (!shouldUploadFile(localFilePath, existing)) {
+    console.log("Skipping unchanged file:", fileName);
+    return;
+  }
+
+  console.log("Uploading changed file:", fileName);
 
   const metadata = JSON.stringify({ name: fileName, parents: existing ? undefined : [parentId] });
   const boundary = "boundary_string";
@@ -385,11 +386,7 @@ async function uploadFile(client: OAuth2Client, localFilePath: string, parentId:
   return await res.json();
 }
 
-async function uploadFolderRecursive(
-  client: OAuth2Client,
-  localPath: string,
-  parentId: string
-) {
+async function uploadFolderRecursive(client: OAuth2Client, localPath: string, parentId: string) {
   const items = fs.readdirSync(localPath);
 
   for (const item of items) {
@@ -410,7 +407,6 @@ async function uploadFolderRecursive(
       await uploadFolderRecursive(client, itemPath, folderId);
     } else {
       await uploadFile(client, itemPath, parentId);
-      console.log("Uploaded:", item);
     }
   }
 }
@@ -431,4 +427,42 @@ export async function uploadServerFolder(serverId: string) {
   } catch (err: any) {
     return { success: false, error: err.message };
   }
+}
+
+function shouldDownloadFile(localPath: string, driveFile: any): boolean {
+  //If file doesn't exist locally then always download
+  if (!fs.existsSync(localPath))
+    return true;
+
+  const localStat = fs.statSync(localPath);
+
+  //If size differs then download
+  if (localStat.size !== parseInt(driveFile.size))
+    return true;
+
+  //If drive version is newer than local then download
+  const driveModified = new Date(driveFile.modifiedTime).getTime();
+  if (driveModified > localStat.mtimeMs)
+    return true;
+
+  return false;
+}
+
+function shouldUploadFile(localFilePath: string, driveFile: any): boolean {
+  //If file doesn't exist on drive then always upload
+  if (!driveFile)
+    return true;
+
+  const localStat = fs.statSync(localFilePath);
+
+  //If size differs then upload
+  if (localStat.size !== parseInt(driveFile.size))
+    return true;
+
+  //If local version is newer than drive then upload
+  const driveModified = new Date(driveFile.modifiedTime).getTime();
+  if (localStat.mtimeMs > driveModified)
+    return true;
+
+  return false;
 }
