@@ -89,8 +89,8 @@ export async function loginWithGoogle(): Promise<{success: boolean, error?: stri
       access_type: "offline",
 
       scope: [
+        "https://www.googleapis.com/auth/drive.file",
         "https://www.googleapis.com/auth/userinfo.profile",
-        "https://www.googleapis.com/auth/drive.appdata"
       ]
     });
 
@@ -190,5 +190,6 @@ export async function logoutGoogle(): Promise<{ success: boolean}> {
   catch {
     return {success:false}
   }
-
 }
+
+

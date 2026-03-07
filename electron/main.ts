@@ -1,8 +1,10 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { loginWithGoogle, getUserInfo, isAlreadyLoggedIn, logoutGoogle } from './services/googleAuthService'
+import { createServerFolder, deleteServerFolder,getRootWithContents,syncServer, uploadServerFolder } from './services/googleDriveService'
+import { getServerPath, setServerPath } from './services/localServerStore'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -84,6 +86,48 @@ ipcMain.handle("google-is-logged-in", () => {
 
 ipcMain.handle("google-logout", async () => {
   return await logoutGoogle();
+})
+
+ipcMain.handle("drive-create-server", async () => {
+  return await createServerFolder();
+});
+
+ipcMain.handle('drive-delete-server', async(_event, folderId) => {
+  return await deleteServerFolder(folderId);
+})
+
+ipcMain.handle("drive-get-root", async ()=> {
+  return await getRootWithContents();
+})
+
+ipcMain.handle("choose-directory", async () => {
+  const results = await dialog.showOpenDialog({properties: ["openDirectory"]})
+
+  if (results.canceled || results.filePaths.length===0) return null
+
+  return results.filePaths[0];
+})
+
+ipcMain.handle("set-server-path", async (_,serverId)=> {
+  const result = await dialog.showOpenDialog({properties:["openDirectory"]})
+
+  if(result.canceled) return null
+
+  setServerPath(serverId,result.filePaths[0])
+
+  return result.filePaths[0]
+})
+
+ipcMain.handle("get-server-path", async (_,serverId)=> {
+  return getServerPath(serverId)
+})
+
+ipcMain.handle("sync-server", async(_, serverId) => {
+  return await syncServer(serverId)
+})
+
+ipcMain.handle("upload-server-folder", async (_, serverId) => {
+    return await uploadServerFolder(serverId);
 })
 
 app.whenReady().then(createWindow)

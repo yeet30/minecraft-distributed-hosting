@@ -21,6 +21,15 @@
     min-height: 300px;
 }
 
+#modal-title{
+    position: absolute;
+    top:0px;
+}
+
+#children{
+    padding-top: 20px;
+}
+
 #modal-close {
     position: absolute;
     top: 10px;

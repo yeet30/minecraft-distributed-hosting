@@ -2,7 +2,7 @@ import "electron";
 import "node:module";
 import "node:url";
 import "node:path";
-import { M, R, V } from "./main-DfEX-G-W.js";
+import { M, R, V } from "./main-DT-n3MC9.js";
 export {
   M as MAIN_DIST,
   R as RENDERER_DIST,

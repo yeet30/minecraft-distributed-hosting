@@ -29,7 +29,7 @@ export default function BurgerMenu({picture}:any){
     return (
         <section id="wrapper">
 
-            <Modal isOpen={isModalOpen} onClose={() => {setIsModalOpen(false)}}>
+            <Modal isOpen={isModalOpen} onClose={() => {setIsModalOpen(false)}} title="Drive Folders">
                 <DriveFolders/>
             </Modal>
 
