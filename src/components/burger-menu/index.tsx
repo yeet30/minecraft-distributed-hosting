@@ -4,7 +4,7 @@ import './burger-menu.css';
 import Modal from "../modal";
 import DriveFolders from "../drive-folders";
 
-export default function BurgerMenu({picture}:any){
+export default function BurgerMenu({picture,driveProps}:any){
 
     const navigate = useNavigate();
 
@@ -30,7 +30,7 @@ export default function BurgerMenu({picture}:any){
         <section id="wrapper">
 
             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Drive Folders">
-                <DriveFolders/>
+                <DriveFolders {...driveProps}/>
             </Modal>
 
             <div id="menu-clicker" onClick={()=>{setisMenuOpen(!isMenuOpen)}} className={isMenuOpen ? 'open' : 'close'}>

@@ -1,38 +1,27 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {Pencil, Trash2, Loader2} from 'lucide-react';
 import './drive-folder.css'
 import { useConfirm } from '../../hooks/useConfirm';
 
-export default function DriveFolders(){
+type Props = {
+    servers: { id: string; name: string; path: string }[],
+    loadingServers: boolean,
+    serversErrors: string,
+    loadServers: any
+}
+
+export default function DriveFolders({servers, loadingServers, serversErrors,loadServers}:Props){
 
     const {confirm, popup} = useConfirm();
 
     const maxSlots:number = 3;
 
-    const [servers, setServers] = useState<{ id: string; name: string ; path: string}[]>([]);
-    const [loadingServers, setLoadingServers] = useState(false);
-    const [serversErrors,setServersErrors] = useState("");
     const [loadingCreate,setLoadingCreate] = useState<string | null>(null);
     const [loadingDelete,setLoadingDelete] = useState<string | null>(null);
     const [loadingDownload,setloadingDownload] = useState<string | null>(null);
     const [loadingUpload,setLoadingUpload] = useState<string | null>(null);
     const [loadingEdit,setLoadingEdit] = useState<string | null>(null);
 
-    async function loadServers(){
-        setLoadingServers(true);
-
-        const result = await window.ipcRenderer.invoke("drive-get-root");
-
-        if (result.success) {
-            for (const server of result.servers) 
-                server.path = await window.ipcRenderer.invoke("get-server-path", server.id) || "";
-            setServers(result.servers);
-        }
-        else
-            setServersErrors(result.error);
-
-        setLoadingServers(false);
-    };
 
     async function handleCreate(key:string){
 
@@ -48,11 +37,10 @@ export default function DriveFolders(){
         setLoadingCreate(key)
         const result = await window.ipcRenderer.invoke("drive-create-server");
         setLoadingCreate(null)
-        if (!result.success) {
+        if (!result.success)
             alert(result.error);
-        } else {
+        else 
             alert("Server created!");
-        }
 
         loadServers();
     }
@@ -121,13 +109,6 @@ export default function DriveFolders(){
         setLoadingEdit(null)
         await loadServers();
     }
-
-    
-
-    useEffect(()=>{
-        loadServers();
-    },[])
-
 
     return(
         <>

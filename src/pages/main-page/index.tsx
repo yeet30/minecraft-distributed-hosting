@@ -9,6 +9,9 @@ export default function MainPage(){
 
     const navigate = useNavigate();
 
+    const [servers, setServers] = useState<{ id: string; name: string ; path: string}[]>([]);
+    const [loadingServers, setLoadingServers] = useState(false);
+    const [serversErrors,setServersErrors] = useState("");
     const [loadingUser,setLoadingUser] = useState(false);
     const [userProps,setUserProps] = useState({
         name: '',
@@ -19,6 +22,29 @@ export default function MainPage(){
         userProps: userProps,
         loadingUser: loadingUser
     }
+
+    const driveProps = {
+        servers: servers,
+        loadingServers: loadingServers,
+        serversErrors: serversErrors,
+        loadServers: loadServers
+    }
+
+    async function loadServers(){
+        setLoadingServers(true);
+
+        const result = await window.ipcRenderer.invoke("drive-get-root");
+
+        if (result.success) {
+            for (const server of result.servers) 
+                server.path = await window.ipcRenderer.invoke("get-server-path", server.id) || "";
+            setServers(result.servers);
+        }
+        else
+            setServersErrors(result.error);
+
+        setLoadingServers(false);
+    };
 
     useEffect(() =>{
         async function checkLoggedIn(){
@@ -36,6 +62,7 @@ export default function MainPage(){
         }
         checkLoggedIn();
         loadUser();
+        loadServers();
     },[])
 
 
@@ -48,7 +75,7 @@ export default function MainPage(){
                 <GreetingSection {...greetingProps}/>
             </section>
             <section id='menu-section'>
-                <BurgerMenu picture={userProps.picture}/>
+                <BurgerMenu picture={userProps.picture} driveProps={driveProps}/>
             </section>
         </section>
     )
