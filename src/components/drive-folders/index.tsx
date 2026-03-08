@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import {Pencil, Trash2, Loader2} from 'lucide-react';
 import './drive-folder.css'
+import { useConfirm } from '../../hooks/useConfirm';
 
 export default function DriveFolders(){
+
+    const {confirm, popup} = useConfirm();
 
     const maxSlots:number = 3;
 
@@ -11,7 +14,7 @@ export default function DriveFolders(){
     const [serversErrors,setServersErrors] = useState("");
     const [loadingCreate,setLoadingCreate] = useState<string | null>(null);
     const [loadingDelete,setLoadingDelete] = useState<string | null>(null);
-    const [loadingSync,setLoadingSync] = useState<string | null>(null);
+    const [loadingDownload,setloadingDownload] = useState<string | null>(null);
     const [loadingUpload,setLoadingUpload] = useState<string | null>(null);
     const [loadingEdit,setLoadingEdit] = useState<string | null>(null);
 
@@ -32,6 +35,16 @@ export default function DriveFolders(){
     };
 
     async function handleCreate(key:string){
+
+        const accepted = await confirm({
+            message:"Do you want to create a new shared folder in your Google Drive?",
+            confirmText:"Yes",
+            cancelText:"No"
+        })
+
+        if(!accepted)
+            return;
+
         setLoadingCreate(key)
         const result = await window.ipcRenderer.invoke("drive-create-server");
         setLoadingCreate(null)
@@ -45,6 +58,15 @@ export default function DriveFolders(){
     }
 
     async function handleDelete(server:any){
+
+        const accepted = await confirm({
+            message:"Are you sure you want to delete this folder from the shared Google Drive?",
+            confirmText:"Yes",
+        })
+
+        if(!accepted)
+            return;
+
         setLoadingDelete(server.id)
         const result = await window.ipcRenderer.invoke("drive-delete-server", server.id);
         setLoadingDelete(null)
@@ -54,26 +76,34 @@ export default function DriveFolders(){
             loadServers();
     }
 
-    async function handleSync(server:any){
-        setLoadingSync(server.id)
-        const result = await window.ipcRenderer.invoke("sync-server", server.id)
-        setLoadingSync(null)
-        console.log("Result: " ,result)
+    async function handleDownload(server:any){
 
+        const accepted = await confirm({
+            message:"This action syncs up your Local server folder by overwriting it with the files in the shared Google Drive.",
+        })
+
+        if(!accepted)
+            return;
+
+        setloadingDownload(server.id)
+        const result = await window.ipcRenderer.invoke("sync-server", server.id)
+        setloadingDownload(null)
         if (!result.success)
             alert(result.error)
         else
             alert(`Files are synced up in the directory: ${server.path}`)
-    }
 
-    async function handleEdit(server:any){
-        setLoadingEdit(server.id)
-        await window.ipcRenderer.invoke("set-server-path", server.id);
-        setLoadingEdit(null)
-        await loadServers();
     }
 
     async function handleUpload(server:any){
+
+        const accepted = await confirm({
+            message:"This action syncs up the shared Google Drive folder by overwriting it with the files in your local directory.",
+        })
+
+        if(!accepted)
+            return;
+
         setLoadingUpload(server.id)
         const result = await window.ipcRenderer.invoke("upload-server-folder", server.id)
         setLoadingUpload(null)
@@ -85,6 +115,15 @@ export default function DriveFolders(){
             alert(`Files are synced up in the directory: ${server.name}`)
     }
 
+    async function handleEdit(server:any){
+        setLoadingEdit(server.id)
+        await window.ipcRenderer.invoke("set-server-path", server.id);
+        setLoadingEdit(null)
+        await loadServers();
+    }
+
+    
+
     useEffect(()=>{
         loadServers();
     },[])
@@ -92,6 +131,8 @@ export default function DriveFolders(){
 
     return(
         <>
+            {popup}
+
             {!servers  && <h4>Start by creating your first server folder.</h4>}
             {loadingServers  
                 ? <span id='loading-span'>
@@ -108,23 +149,21 @@ export default function DriveFolders(){
                                 </span>
 
                                 <span>
-                                    Sync:
                                     <button 
                                     className='list-button'
-                                    style={{backgroundColor:"rgb(10, 10, 20)", marginRight:"1px"}}
-                                    disabled={loadingSync === server.id}
-                                    onClick={() => handleSync(server)}>
-                                        {loadingSync === server.id && <Loader2 size={12} className='spinner'/>}
-                                        Local
+                                    style={{backgroundColor:"rgb(10, 30, 10)", marginRight:"1px"}}
+                                    disabled={loadingDownload === server.id}
+                                    onClick={() => handleDownload(server)}>
+                                        {loadingDownload === server.id && <Loader2 size={12} className='spinner'/>}
+                                        Download
                                     </button>
-                                    /
                                     <button 
                                     className='list-button'
-                                    style={{backgroundColor:"rgb(10, 10, 20)", marginRight:"1px"}}
+                                    style={{backgroundColor:"rgb(10, 10, 30)", marginRight:"1px"}}
                                     disabled={loadingUpload === server.id}
                                     onClick={() => handleUpload(server)}>
                                         {loadingUpload === server.id && <Loader2 size={12} className='spinner'/>}
-                                        Drive
+                                        Upload
                                     </button>
                                     <button
                                     className='list-button'
