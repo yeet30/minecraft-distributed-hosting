@@ -29,8 +29,17 @@ export default function BurgerMenu({picture,driveProps}:any){
     return (
         <section id="wrapper">
 
-            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Drive Folders">
-                <DriveFolders {...driveProps}/>
+            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+                {[
+                    {
+                        title: "Your Folders",
+                        content: <DriveFolders servers={driveProps.ownedServers} {...driveProps}/>
+                    },
+                    {
+                        title: "Joined Folders",
+                        content: <DriveFolders servers={driveProps.joinedServers} {...driveProps}/>
+                    }
+                ]}
             </Modal>
 
             <div id="menu-clicker" onClick={()=>{setisMenuOpen(!isMenuOpen)}} className={isMenuOpen ? 'open' : 'close'}>

@@ -1,0 +1,8 @@
+#greeting-wrapper{
+    width: 100%;
+}
+
+.greeting-title{
+    text-align: center;
+    font-size: 2rem;
+}

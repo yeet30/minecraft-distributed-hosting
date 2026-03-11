@@ -19,6 +19,8 @@
     z-index: 301;
     width: 500px;
     max-height: 300px;
+    border-style: dotted;
+    border-width: 1px;
 }
 
 

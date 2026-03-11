@@ -21,15 +21,47 @@
     max-height: 300px;
 }
 
-#modal-title{
+#modal-tabs{
     position: absolute;
     top:0px;
+    width: 80%;
+    display: flex;
+    flex-direction: row;
+    gap: 5px;
 }
 
+.tab{
+    background-color: rgb(40, 40,40);
+    padding: 5px 10px;
+    border-top-left-radius: 15px;
+    border-top-right-radius: 15px;
+    border-bottom-left-radius: 15px;
+    border-bottom-right-radius: 15px;
+}
+
+.tab:hover{
+    cursor: pointer;
+}
+
+.tab.active{
+    background-color: rgba(70,70,70);
+    border-top-left-radius: 15px;
+    border-top-right-radius: 15px;
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
+}
+
+#title-seperator {
+    position: relative;
+    height: 3px;
+    top: 34px;
+    width: 75%;
+    background-color: rgba(70,70,70);
+}
+
+
 #children{
-    padding-top: 20px;
     max-height: 300px;
-    overflow-y: auto;
 }
 
 #modal-close {

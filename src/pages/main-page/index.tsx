@@ -10,6 +10,7 @@ export default function MainPage(){
     const navigate = useNavigate();
 
     const [servers, setServers] = useState<{ id: string; name: string ; path: string}[]>([]);
+    const [selectedServer, setSelectedServer] = useState<{ id: string; name: string ; path: string}>(servers[0]);
     const [loadingServers, setLoadingServers] = useState(false);
     const [serversErrors,setServersErrors] = useState("");
     const [loadingUser,setLoadingUser] = useState(false);
@@ -20,14 +21,33 @@ export default function MainPage(){
 
     const greetingProps = {
         userProps: userProps,
-        loadingUser: loadingUser
+        loadingUser: loadingUser,
+        servers: servers,
+        selectedServer: selectedServer,
+        setSelectedServer: setSelectedServer
     }
 
     const driveProps = {
-        servers: servers,
+        ownedServers:servers,
+        joinedServers:[servers[0]],
         loadingServers: loadingServers,
         serversErrors: serversErrors,
         loadServers: loadServers
+    }
+
+    async function checkLoggedIn(){
+        const loggedIn = await window.ipcRenderer.invoke("google-is-logged-in");
+        if(!loggedIn) navigate ("/")
+    }
+
+    async function loadUser(){
+        setLoadingUser(true)
+        const user = await window.ipcRenderer.invoke("google-get-user")
+        setUserProps({
+            name: user.name,
+            picture: user.picture
+        });
+        setLoadingUser(false)
     }
 
     async function loadServers(){
@@ -47,23 +67,14 @@ export default function MainPage(){
     };
 
     useEffect(() =>{
-        async function checkLoggedIn(){
-            const loggedIn = await window.ipcRenderer.invoke("google-is-logged-in");
-            if(!loggedIn) navigate ("/")
-        }
-        async function loadUser(){
-            setLoadingUser(true)
-            const user = await window.ipcRenderer.invoke("google-get-user")
-            setUserProps({
-                name: user.name,
-                picture: user.picture
-            });
-            setLoadingUser(false)
-        }
         checkLoggedIn();
         loadUser();
         loadServers();
     },[])
+
+    useEffect(()=>{
+        setSelectedServer(servers[0])
+    },[servers])
 
 
     return (

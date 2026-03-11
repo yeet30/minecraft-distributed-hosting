@@ -4,7 +4,7 @@
 
 #menu-clicker{
     position: absolute;
-    right: 5px;
+    right: 10px;
     top: 10px;
     border-style: solid;
     border-radius: 50px;
@@ -41,9 +41,9 @@
 }
 
 #hamburger-icon{
-    position: fixed;
-    right: 5px;
-    top: 10px;
+    position: absolute;
+    right: 0px;
+    top: 0px;
     font-size: 30px;
     min-width: 40px;
     height: 40px;
@@ -54,9 +54,9 @@
 }
 
 #drawer{
-    position: fixed;
+    position: absolute;
     top: 5px;
-    right: 0px;
+    right: 5px;
     height: 55px;
     width: 100px;
     border-radius: 20px;
@@ -67,7 +67,7 @@
 }
 
 #menu-clicker:hover ~ #drawer.close {
-    transform: scale(1.1);
+    outline: 4px solid #1e1e1e;
     transition: width 0.3s ease, height 0.3s ease;
     z-index: 98;
     overflow: hidden;
@@ -75,9 +75,11 @@
 
 #drawer.open {
     border-radius: 5px;
+    border-top-left-radius: 25px;
+    border-top-right-radius: 25px;
     width: 200px;
     height: 250px;
-    right: 0px;
+    right: 5px;
 }
 
 #drawer ul {

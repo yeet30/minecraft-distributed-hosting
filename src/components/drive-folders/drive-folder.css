@@ -12,12 +12,11 @@
     padding-left: 10px;
 }
 
-ul{
-    margin-top: 2rem;
+#servers-ul{
     margin-left: -10%;
 }
 
-ul li{
+#servers-ul li{
     display: flex;
     flex-direction: column;
     list-style: none;

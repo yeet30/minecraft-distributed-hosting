@@ -121,7 +121,7 @@ export default function DriveFolders({servers, loadingServers, serversErrors,loa
                     <h4>Loading servers...</h4>
                 </span>
                 : 
-                <ul>
+                <ul id='servers-ul'>
                     {servers.map(server => (
                         <li key={server.id}>
                             <span className='first-row'>
@@ -171,7 +171,7 @@ export default function DriveFolders({servers, loadingServers, serversErrors,loa
                                 disabled={loadingEdit === server.id}
                                 onClick={() => handleEdit(server)}>
                                     {loadingEdit === server.id && <Loader2 size={12} className='spinner'/>}
-                                    Edit <Pencil size={12} style={{borderBottom:"solid", borderWidth:"1px"}}/>
+                                    Path <Pencil size={12} style={{borderBottom:"solid", borderWidth:"1px"}}/>
                                 </button>
                             </span>
                         </li>
