@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {Pencil, Trash2, Loader2} from 'lucide-react';
-import './drive-folder.css'
+import './joined-drive-folders.css'
 import { useConfirm } from '../../hooks/useConfirm';
 
 type Props = {
@@ -10,7 +10,7 @@ type Props = {
     loadServers: any
 }
 
-export default function DriveFolders({servers, loadingServers, serversErrors,loadServers}:Props){
+export default function JoinedDriveFolders({servers, loadingServers, serversErrors,loadServers}:Props){
 
     const {confirm, popup} = useConfirm();
 

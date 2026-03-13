@@ -1,6 +1,6 @@
 import './greeting-section.css'
 
-export default function GreetingSection({userProps, loadingUser,servers,selectedServer,setSelectedServer}:any){
+export default function GreetingSection({userProps, loadingUser,selectedServer,setSelectedServer}:any){
 
     if(loadingUser)
         return <h2 className="greeting-title">Loading user information...</h2>

@@ -9,8 +9,13 @@ export default function MainPage(){
 
     const navigate = useNavigate();
 
-    const [servers, setServers] = useState<{ id: string; name: string ; path: string}[]>([]);
-    const [selectedServer, setSelectedServer] = useState<{ id: string; name: string ; path: string}>(servers[0]);
+    const [servers, setServers] = useState<{ 
+        id: string; 
+        name: string; 
+        path: string; 
+        permittedUsers: {id:string,type:string, emailAddress:string, role:string, displayName:string}[]
+    }[]>([]);
+    const [selectedServer, setSelectedServer] = useState<number>(0);
     const [loadingServers, setLoadingServers] = useState(false);
     const [serversErrors,setServersErrors] = useState("");
     const [loadingUser,setLoadingUser] = useState(false);
@@ -22,8 +27,7 @@ export default function MainPage(){
     const greetingProps = {
         userProps: userProps,
         loadingUser: loadingUser,
-        servers: servers,
-        selectedServer: selectedServer,
+        selectedServer: servers[selectedServer],
         setSelectedServer: setSelectedServer
     }
 
@@ -54,12 +58,9 @@ export default function MainPage(){
         setLoadingServers(true);
 
         const result = await window.ipcRenderer.invoke("drive-get-root");
-
-        if (result.success) {
-            for (const server of result.servers) 
-                server.path = await window.ipcRenderer.invoke("get-server-path", server.id) || "";
+    
+        if (result.success)
             setServers(result.servers);
-        }
         else
             setServersErrors(result.error);
 
@@ -73,7 +74,7 @@ export default function MainPage(){
     },[])
 
     useEffect(()=>{
-        setSelectedServer(servers[0])
+        setSelectedServer(1)
     },[servers])
 
 

@@ -39,10 +39,6 @@
     padding-bottom: 20px;
 }
 
-.ghost{
-    font-size: 1rem;
-}
-
 .list-button{
     font-size: 1rem;
     font-weight: 400;
@@ -60,11 +56,14 @@
 
 .third-row{
     display: flex;
-    flex-direction: row-reverse;
+    justify-content: space-between;
 }
 
-.third-row button{
+.third-row .list-button{
     padding: 0px 8px;
+    width: 25%;
+    height: 1.5rem;
+    margin-top: 5px;
     font-size: 0.9rem;
 }
 

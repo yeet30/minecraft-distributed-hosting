@@ -1,0 +1,59 @@
+import { useState } from 'react'
+import './permissions-list.css'
+import { ChevronsDown, ChevronsLeft, Trash2 } from 'lucide-react'
+
+type PermissionsList = {
+    permissionsList: {id:string,type:string, emailAddress:string, role:string, displayName:string}[]
+}
+
+export default function PermissionsList({permissionsList}:PermissionsList){
+
+    const [list,setList] = useState(permissionsList)
+    const [isListOpen,setIsListOpen] = useState(false)
+    const [counter,setCounter] = useState(0);
+
+    function handleMembers(){
+        setIsListOpen(!isListOpen)
+    }
+
+    function handleAdd(){
+        setList([...list , {id:`${counter}`,type:"string", emailAddress:"string", role:"contributor", displayName:"User"}])
+        setCounter(counter+1)
+    }
+
+    function handleRemove(memberId:string){
+        setList(list.filter( item => item.id !==memberId))
+    }
+
+    return(
+        <>
+            <div id='permissions-dropdown'>
+                <button id='permissions-button' className={isListOpen ? 'open' : ''} onClick={handleMembers}>
+                    <span id='permissions-title' className={isListOpen ? 'open' : ''}>Members</span>
+                    <span id='permissions-chevrons'>{isListOpen ? <ChevronsDown size={18}/>: <ChevronsLeft size={18}/> }</span>
+                </button>
+                <div id='permissions-drawer' className={isListOpen ? 'open' : ''}>
+                    <span id='members-titles'>
+                        <span>Username</span>
+                        <span>Role</span>
+                    </span>
+                    {list.map( member => (
+                        <span id='members-item' key={member.id}>
+                            <span id='member-span'>
+                                <span id='member-username'>{member.displayName}</span>
+                                <span id='member-role'>({member.role})</span>
+                                <span id='member-remove'>
+                                    {member.role!=="owner" 
+                                        ? <button id='remove-button' onClick={()=>{handleRemove(member.id)}}><Trash2 size={16}/></button> 
+                                        : ''
+                                    }
+                                </span>
+                            </span>
+                        </span>
+                    ))}
+                    <span id='invite-member'><button onClick={handleAdd}>Invite Member</button></span>
+                </div>
+            </div>
+        </>
+    )
+}

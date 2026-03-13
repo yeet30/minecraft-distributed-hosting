@@ -1,0 +1,75 @@
+#loading-span{
+    display: flex;
+    flex-direction: row;
+}
+
+#loading-span .spinner{
+    position: relative;
+    top: 22px;
+}
+
+#loading-span h4{
+    padding-left: 10px;
+}
+
+#servers-ul{
+    margin-left: -10%;
+}
+
+#servers-ul li{
+    display: flex;
+    flex-direction: column;
+    list-style: none;
+    margin-top: 0.5rem;
+    font-weight: 400;
+    font-size: 1.1rem;
+}
+
+.first-row{
+    margin-top: 1rem;
+    font-weight: 400;
+    font-size: 1.1rem;
+    display: flex;
+    flex-direction: row;
+    align-items: top;
+    justify-content: space-between;
+}
+
+.list-text{
+    padding-bottom: 20px;
+}
+
+.list-button{
+    font-size: 1rem;
+    font-weight: 400;
+    padding: 5px 10px;
+}
+
+.second-row{
+    margin-top: -1rem;
+    font-weight: 100;
+    font-size: 0.9rem;
+    color: rgb(150, 150, 150);
+    border-bottom: solid;
+    border-width: 1px;
+}
+
+.third-row{
+    display: flex;
+    flex-direction: row-reverse;
+}
+
+.third-row button{
+    padding: 0px 8px;
+    font-size: 0.9rem;
+}
+
+.spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+

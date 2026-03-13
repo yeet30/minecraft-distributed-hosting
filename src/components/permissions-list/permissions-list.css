@@ -1,0 +1,118 @@
+#permissions-dropdown{
+    width: 100%;
+}
+
+#permissions-button{
+    position: relative;
+    display: flex;
+    border-radius: 20px;
+    margin-top: 5px;
+    width: 85%;
+    height: 1.5rem;
+    background-color:rgb(10, 50, 10);
+    display: flex;
+    justify-content: space-between;
+    z-index: 100;
+    transition: height 0.2s ease, width 0.2s ease;
+}
+
+#permissions-button.open{
+    height: 2rem;
+    align-items: center;
+    width: 95%;
+}
+
+#permissions-button:focus{
+    outline: none;
+}
+
+#permissions-title{
+    position: relative;
+    left: 30px;
+    top: 2px;
+    font-size: 0.9rem;
+    transition: font-size 0.2s ease;
+}
+
+#permissions-title.open{
+    font-size: 1.1rem;
+}
+
+#permissions-chevrons{
+    position: relative;
+    top: 3px;
+    right: 10px;
+}
+
+#permissions-drawer{
+    display: flex;
+    flex-direction: column;
+    padding-top: 20px;
+    margin-top: -20px;
+    max-height: 0px;
+    background-color: rgba(0, 0, 0, 0.15);
+    width: 85%;
+    z-index: 99;
+    border-radius: 10px;
+    transition: max-height 0.2s ease,width 0.2s ease;
+    overflow: auto;
+    align-items: center;
+    
+}
+
+#permissions-drawer.open{
+    max-height: 200px;
+    width: 95%;
+}
+
+#members-titles{
+    display: flex;
+    width: 90%;
+    border-bottom: solid 1px;
+    font-size: 0.9rem;
+    font-weight: 100;
+    color: rgba(150, 150, 150, 1);
+    
+}
+
+#members-titles span{
+    padding-right: 3.5rem;
+}
+
+#members-item{
+    width: 85%;
+    border-bottom: solid 1px;
+    padding: 5px 10px;
+}
+
+#member-span{
+    display: flex;
+    align-items: center;
+    padding: 5px 0px;
+    width: 100%;
+    justify-content: space-between;
+}
+
+#member-username{
+    width: 30%;
+}
+
+#member-role{
+    display: flex;
+    justify-content: center;
+    font-weight: 100;
+    width: 33%;
+    font-size: 1rem;
+    color: rgba(200, 200, 200, 0.5);
+}
+
+#member-remove{
+    display: flex;
+    justify-content: flex-end;
+    width: 33%;
+}
+
+#remove-button{
+    background-color: rgb(100, 0, 0,0.5);
+    padding-top: 5px;
+}

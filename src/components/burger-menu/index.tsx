@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import './burger-menu.css';
 import Modal from "../modal";
-import DriveFolders from "../drive-folders";
+import OwnedDriveFolders from "../owned-drive-folders";
+import JoinedDriveFolders from "../joined-drive-folders";
 
 export default function BurgerMenu({picture,driveProps}:any){
 
@@ -33,11 +34,11 @@ export default function BurgerMenu({picture,driveProps}:any){
                 {[
                     {
                         title: "Your Folders",
-                        content: <DriveFolders servers={driveProps.ownedServers} {...driveProps}/>
+                        content: <OwnedDriveFolders servers={driveProps.ownedServers} {...driveProps}/>
                     },
                     {
                         title: "Joined Folders",
-                        content: <DriveFolders servers={driveProps.joinedServers} {...driveProps}/>
+                        content: <JoinedDriveFolders servers={driveProps.joinedServers} {...driveProps}/>
                     }
                 ]}
             </Modal>

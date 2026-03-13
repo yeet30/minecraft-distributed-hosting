@@ -208,14 +208,18 @@ async function listFolderContents(
     method: "GET"
   });
 
-  return data.files
-  .filter((f: any) =>
-    f.mimeType === "application/vnd.google-apps.folder"
+  const servers = await Promise.all(
+    data.files
+      .filter((f: any) => f.mimeType === "application/vnd.google-apps.folder")
+      .map(async (f: any) => ({
+        id: f.id,
+        name: f.name,
+        path: getServerPath(f.id) || "",
+        permittedUsers: await getFolderPermissions(f.id)
+      }))
   )
-  .map((f: any) => ({
-    id: f.id,
-    name: f.name
-  }));
+
+  return servers;
 }
 
 async function listAllInFolder(client: OAuth2Client, folderId: string) {
@@ -465,4 +469,70 @@ function shouldUploadFile(localFilePath: string, driveFile: any): boolean {
     return true;
 
   return false;
+}
+
+export async function getFolderPermissions(folderId: string) {
+
+  const client = getOAuthClient();
+
+  await refreshIfNeeded(client);
+
+  const accessToken = client.credentials.access_token;
+
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${folderId}/permissions?fields=permissions(id,emailAddress,role,type,displayName)`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    }
+  );
+
+  if (!res.ok)
+    throw new Error(await res.text());
+
+  const data = await res.json();
+
+  return data.permissions;
+}
+
+export async function createInviteLink(serverId: string) {
+  const client = getOAuthClient();
+
+  try {
+    await refreshIfNeeded(client);
+
+    const accessToken = client.credentials.access_token;
+
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${serverId}/permissions`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          type: "anyone",
+          role: "writer"
+        })
+      }
+    );
+
+    if (!res.ok)
+      throw new Error(await res.text());
+
+    const inviteLink = `https://drive.google.com/drive/folders/${serverId}`;
+
+    return {
+      success: true,
+      link: inviteLink
+    };
+
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message
+    };
+  }
 }
