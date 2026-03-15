@@ -165,9 +165,6 @@ export default function OwnedDriveFolders({servers, loadingServers, serversError
                                     ? server.path
                                     : "C:\\Set the path for this folder"
                                 }
-                            </span>
-
-                            <span className='third-row'>
                                 <button
                                 className='list-button'
                                 style={{backgroundColor:"rgb(10, 10, 10)"}}
@@ -176,7 +173,10 @@ export default function OwnedDriveFolders({servers, loadingServers, serversError
                                     {loadingEdit === server.id && <Loader2 size={12} className='spinner'/>}
                                     Path <Pencil size={12} style={{borderBottom:"solid", borderWidth:"1px"}}/>
                                 </button>
-                                <PermissionsList permissionsList={server.permittedUsers}/>
+                            </span>
+
+                            <span className='third-row'>
+                                <PermissionsList permissionsList={server.permittedUsers} serverId={server.id}/>
                             </span>
                         </li>
                     )).reverse()}

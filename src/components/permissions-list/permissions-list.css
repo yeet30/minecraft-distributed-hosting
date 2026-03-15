@@ -7,7 +7,7 @@
     display: flex;
     border-radius: 20px;
     margin-top: 5px;
-    width: 85%;
+    width: 90%;
     height: 1.5rem;
     background-color:rgb(10, 50, 10);
     display: flex;
@@ -19,7 +19,7 @@
 #permissions-button.open{
     height: 2rem;
     align-items: center;
-    width: 95%;
+    width: 100%;
 }
 
 #permissions-button:focus{
@@ -51,7 +51,7 @@
     margin-top: -20px;
     max-height: 0px;
     background-color: rgba(0, 0, 0, 0.15);
-    width: 85%;
+    width: 90%;
     z-index: 99;
     border-radius: 10px;
     transition: max-height 0.2s ease,width 0.2s ease;
@@ -62,12 +62,13 @@
 
 #permissions-drawer.open{
     max-height: 200px;
-    width: 95%;
+    width: 100%;
 }
 
 #members-titles{
     display: flex;
     width: 90%;
+    margin-top: 0.5rem;
     border-bottom: solid 1px;
     font-size: 0.9rem;
     font-weight: 100;
@@ -76,7 +77,7 @@
 }
 
 #members-titles span{
-    padding-right: 3.5rem;
+    padding-right: 6.2rem;
 }
 
 #members-item{

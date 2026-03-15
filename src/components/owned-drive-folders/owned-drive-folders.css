@@ -20,23 +20,22 @@
     display: flex;
     flex-direction: column;
     list-style: none;
-    margin-top: 0.5rem;
     font-weight: 400;
     font-size: 1.1rem;
 }
 
 .first-row{
-    margin-top: 1rem;
+    display: flex;
+    align-items: start;
     font-weight: 400;
-    font-size: 1.1rem;
     display: flex;
     flex-direction: row;
-    align-items: top;
+    align-items: bottom;
     justify-content: space-between;
 }
 
 .list-text{
-    padding-bottom: 20px;
+    padding-top: 1px;
 }
 
 .list-button{
@@ -46,7 +45,10 @@
 }
 
 .second-row{
-    margin-top: -1rem;
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    padding-top: 5px;
     font-weight: 100;
     font-size: 0.9rem;
     color: rgb(150, 150, 150);
@@ -54,17 +56,15 @@
     border-width: 1px;
 }
 
+.second-row .list-button{
+    padding: 0px 8px;
+    margin-bottom: 1px;
+    font-size: 0.9rem;
+}
+
 .third-row{
     display: flex;
     justify-content: space-between;
-}
-
-.third-row .list-button{
-    padding: 0px 8px;
-    width: 25%;
-    height: 1.5rem;
-    margin-top: 5px;
-    font-size: 0.9rem;
 }
 
 .spinner {

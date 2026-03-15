@@ -93,8 +93,7 @@ async function findRootFolder(client: OAuth2Client) {
 
   const data = await authorizedFetch(client, url, {method: "GET"});
 
-  console.log("Drive response:", data);
-  console.log("Items:", data.files);
+  console.log("Root:", data.files);
 
   if (data.files && data.files.length > 0) {
     return data.files[0].id;
@@ -103,11 +102,8 @@ async function findRootFolder(client: OAuth2Client) {
   return null;
 }
 
-async function createFolder(
-  client: OAuth2Client,
-  name: string,
-  parentId?: string
-) {
+async function createFolder(client: OAuth2Client, name: string, parentId?: string) {
+  
   const body: any = {
     name,
     mimeType: "application/vnd.google-apps.folder"
@@ -496,43 +492,35 @@ export async function getFolderPermissions(folderId: string) {
   return data.permissions;
 }
 
-export async function createInviteLink(serverId: string) {
+export async function inviteUserToServer(serverId: string, email: string, message?: string) {
   const client = getOAuthClient();
+  await refreshIfNeeded(client);
 
-  try {
-    await refreshIfNeeded(client);
+  const accessToken = client.credentials.access_token;
 
-    const accessToken = client.credentials.access_token;
+  const params = new URLSearchParams({sendNotificationEmail: "true"});
 
-    const res = await fetch(
-      `https://www.googleapis.com/drive/v3/files/${serverId}/permissions`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          type: "anyone",
-          role: "writer"
-        })
-      }
-    );
+  if (message) 
+    params.append("emailMessage", message);
 
-    if (!res.ok)
-      throw new Error(await res.text());
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${serverId}/permissions?${params}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        type: "user",
+        role: "writer",
+        emailAddress: email
+      })
+    }
+  );
 
-    const inviteLink = `https://drive.google.com/drive/folders/${serverId}`;
+  if (!res.ok)
+    throw new Error(await res.text());
 
-    return {
-      success: true,
-      link: inviteLink
-    };
-
-  } catch (err: any) {
-    return {
-      success: false,
-      error: err.message
-    };
-  }
+  return { success: true };
 }

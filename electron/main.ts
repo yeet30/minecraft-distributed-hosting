@@ -3,7 +3,7 @@ import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { loginWithGoogle, getUserInfo, isAlreadyLoggedIn, logoutGoogle } from './services/googleAuthService'
-import { createServerFolder, deleteServerFolder,getRootWithContents,syncServer, uploadServerFolder } from './services/googleDriveService'
+import { createServerFolder, deleteServerFolder,getRootWithContents,syncServer, uploadServerFolder, inviteUserToServer } from './services/googleDriveService'
 import { getServerPath, setServerPath } from './services/localServerStore'
 
 const require = createRequire(import.meta.url)
@@ -129,5 +129,9 @@ ipcMain.handle("sync-server", async(_, serverId) => {
 ipcMain.handle("upload-server-folder", async (_, serverId) => {
     return await uploadServerFolder(serverId);
 })
+
+ipcMain.handle("drive-invite-user", async (_, serverId, email, message?) => {
+    return await inviteUserToServer(serverId, email, message);
+});
 
 app.whenReady().then(createWindow)

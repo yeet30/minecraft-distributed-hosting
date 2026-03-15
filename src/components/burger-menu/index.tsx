@@ -5,51 +5,51 @@ import Modal from "../modal";
 import OwnedDriveFolders from "../owned-drive-folders";
 import JoinedDriveFolders from "../joined-drive-folders";
 
-export default function BurgerMenu({picture,driveProps}:any){
+export default function BurgerMenu({ picture, driveProps }: any) {
 
     const navigate = useNavigate();
 
-    const [isMenuOpen,setisMenuOpen] = useState(false);
-    const [loggingOut,setLoggingOut] = useState(false);
-    const [isModalOpen,setIsModalOpen] = useState(false);
+    const [isMenuOpen, setisMenuOpen] = useState(false);
+    const [loggingOut, setLoggingOut] = useState(false);
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
-    async function handleLogout(){
+    async function handleLogout() {
         setLoggingOut(true)
         setisMenuOpen(false)
         const response = await window.ipcRenderer.invoke("google-logout")
         setLoggingOut(false)
-        if(response.success) 
+        if (response.success)
             navigate("/")
     }
 
-    function handleDrive(){
+    function handleDrive() {
         setisMenuOpen(false)
         setIsModalOpen(true)
     }
 
+    const items = [
+        {
+            title: "Your Folders",
+            content: <OwnedDriveFolders servers={driveProps.ownedServers} {...driveProps} />
+        },
+        {
+            title: "Joined Folders",
+            content: <JoinedDriveFolders servers={driveProps.joinedServers} {...driveProps} />
+        }
+    ]
+
     return (
         <section id="wrapper">
 
-            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
-                {[
-                    {
-                        title: "Your Folders",
-                        content: <OwnedDriveFolders servers={driveProps.ownedServers} {...driveProps}/>
-                    },
-                    {
-                        title: "Joined Folders",
-                        content: <JoinedDriveFolders servers={driveProps.joinedServers} {...driveProps}/>
-                    }
-                ]}
-            </Modal>
+            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} items={items}/>
 
-            <div id="menu-clicker" onClick={()=>{setisMenuOpen(!isMenuOpen)}} className={isMenuOpen ? 'open' : 'close'}>
+            <div id="menu-clicker" onClick={() => { setisMenuOpen(!isMenuOpen) }} className={isMenuOpen ? 'open' : 'close'}>
                 <img
-                id="profile-picture"
-                src={picture} 
-                alt="Profile Picture" 
-                width="40"
-                height="40"
+                    id="profile-picture"
+                    src={picture}
+                    alt="Profile Picture"
+                    width="40"
+                    height="40"
                 />
                 <span id="settings-span" className={isMenuOpen ? 'open' : 'close'}>Settings</span>
                 <div id="hamburger-icon">
@@ -66,7 +66,7 @@ export default function BurgerMenu({picture,driveProps}:any){
                     )}
                 </ul>
             </div>
-            {isMenuOpen && <div id="burger-overlay" onClick={() => setisMenuOpen(false)}/>}
+            {isMenuOpen && <div id="burger-overlay" onClick={() => setisMenuOpen(false)} />}
         </section>
     )
 }
