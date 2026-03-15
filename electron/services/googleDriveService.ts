@@ -91,7 +91,7 @@ async function findRootFolder(client: OAuth2Client) {
   const url =
     `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}&fields=files(id,name)`;
 
-  const data = await authorizedFetch(client, url, {method: "GET"});
+  const data = await authorizedFetch(client, url, { method: "GET" });
 
   console.log("Root:", data.files);
 
@@ -103,7 +103,7 @@ async function findRootFolder(client: OAuth2Client) {
 }
 
 async function createFolder(client: OAuth2Client, name: string, parentId?: string) {
-  
+
   const body: any = {
     name,
     mimeType: "application/vnd.google-apps.folder"
@@ -267,8 +267,8 @@ export async function getRootWithContents() {
   }
 }
 
-async function downloadFile( client:OAuth2Client, fileId:string){
-  
+async function downloadFile(client: OAuth2Client, fileId: string) {
+
   await refreshIfNeeded(client);
 
   const accessToken = client.credentials.access_token;
@@ -282,7 +282,7 @@ async function downloadFile( client:OAuth2Client, fileId:string){
     }
   )
 
-  if(!res.ok) 
+  if (!res.ok)
     throw new Error(await res.text())
 
   return Buffer.from(await res.arrayBuffer())
@@ -316,7 +316,7 @@ async function downloadFolderRecursive(client: OAuth2Client, folderId: string, l
 export async function syncServer(serverId: string) {
 
   console.log("Syncing folder:", serverId);
-  
+
   const client = getOAuthClient();
   const targetPath = getServerPath(serverId);
 
@@ -398,7 +398,7 @@ async function uploadFolderRecursive(client: OAuth2Client, localPath: string, pa
       const query = `'${parentId}' in parents and name='${item}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
       const checkUrl = `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}&fields=files(id)`;
       const checkRes = await authorizedFetch(client, checkUrl, { method: "GET" });
-      
+
       let folderId = checkRes.files?.[0]?.id;
 
       if (!folderId)
@@ -498,10 +498,14 @@ export async function inviteUserToServer(serverId: string, email: string, messag
 
   const accessToken = client.credentials.access_token;
 
-  const params = new URLSearchParams({sendNotificationEmail: "true"});
+  let defaultMessage = `Please do not make any changes in the folder manually, through the internet browser. 
+  As doing so will make the tempered files to become invisible to the desktop application. 
+  Because it can only read and write on the files it itself has uploaded, and cannot see the user's personal files.`
 
-  if (message) 
-    params.append("emailMessage", message);
+  if (message)
+    defaultMessage = message + '\n\n' + defaultMessage
+
+  const params = new URLSearchParams({ sendNotificationEmail: "true", emailMessage: defaultMessage });
 
   const res = await fetch(
     `https://www.googleapis.com/drive/v3/files/${serverId}/permissions?${params}`,
@@ -516,6 +520,28 @@ export async function inviteUserToServer(serverId: string, email: string, messag
         role: "writer",
         emailAddress: email
       })
+    }
+  );
+
+  if (!res.ok)
+    throw new Error(await res.text());
+
+  return { success: true };
+}
+
+export async function removeUserPermission(serverId: string, permissionId: string) {
+  const client = getOAuthClient();
+  await refreshIfNeeded(client);
+
+  const accessToken = client.credentials.access_token;
+
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${serverId}/permissions/${permissionId}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
     }
   );
 

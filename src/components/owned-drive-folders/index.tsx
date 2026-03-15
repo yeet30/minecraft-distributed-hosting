@@ -176,7 +176,7 @@ export default function OwnedDriveFolders({servers, loadingServers, serversError
                             </span>
 
                             <span className='third-row'>
-                                <PermissionsList permissionsList={server.permittedUsers} serverId={server.id}/>
+                                <PermissionsList permissionsList={server.permittedUsers} serverId={server.id} loadServers={loadServers}/>
                             </span>
                         </li>
                     )).reverse()}

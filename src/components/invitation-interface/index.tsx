@@ -2,10 +2,11 @@ import { useState } from 'react'
 import './invitation-interface.css'
 
 type Props = {
-    serverId : string
+    serverId : string,
+    loadServers: ()=> void
 }
 
-export default function InvitationInterface({serverId}:Props){
+export default function InvitationInterface({serverId, loadServers}:Props){
 
     const [email,setEmail] = useState('')
     const [role,setRole] = useState('writer')
@@ -19,13 +20,15 @@ export default function InvitationInterface({serverId}:Props){
             alert(result.error)
             return
         }
+        console.log("sa")
         alert("Invitation sent.")
+        await loadServers()
     }
 
     return (
         <>
             <div id='invitation-wrapper'>
-                <form action="">
+                <form action="" onSubmit={(e) => e.preventDefault()}>
                     <div id='email-div' className='input-div'>
                         <label htmlFor="invitation-email">
                             <h4 className='input-title'>User's Email Address</h4>
@@ -48,8 +51,7 @@ export default function InvitationInterface({serverId}:Props){
                             className='user-role' 
                             value="writer" 
                             checked={role==='writer'}
-                            onChange={(e)=>setRole(e.target.value)}
-                            defaultChecked={true}/>
+                            onChange={(e)=>setRole(e.target.value)}/>
                             <label htmlFor="radio-writer" className='radio-label'>
                                 Writer <span className='radio-description'>(can download and upload files)</span>
                             </label>
@@ -83,8 +85,8 @@ export default function InvitationInterface({serverId}:Props){
                     </div>
                     
                     <div id='email-buttons'>
-                        <button>Cancel</button>
-                        <button onClick={handleSend}>Send</button>
+                        <button type='button'>Cancel</button>
+                        <button type='button' onClick={handleSend}>Send</button>
                     </div>
 
                 </form>

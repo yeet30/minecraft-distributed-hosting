@@ -6,10 +6,11 @@ import InvitationInterface from '../invitation-interface'
 
 type Props = {
     permissionsList: { id: string, type: string, emailAddress: string, role: string, displayName: string }[],
-    serverId: string
+    serverId: string,
+    loadServers: () => void;
 }
 
-export default function PermissionsList({ permissionsList, serverId }: Props) {
+export default function PermissionsList({ permissionsList, serverId , loadServers}: Props) {
 
     const [list, setList] = useState(permissionsList)
     const [isListOpen, setIsListOpen] = useState(false)
@@ -26,8 +27,26 @@ export default function PermissionsList({ permissionsList, serverId }: Props) {
         setIsModalOpen(true)
     }
 
-    function handleRemove(memberId: string) {
-        setList(list.filter(item => item.id !== memberId))
+    async function handleRemove(memberId: string) {
+
+        try {
+            const result = await window.ipcRenderer.invoke('drive-remove-permission', serverId, memberId)
+        
+            if (!result.success){
+                alert(result.error)
+                return
+            }
+            
+            setList(prev => prev.filter(item => item.id !== memberId))
+
+            alert("User removed.")
+
+            loadServers()
+
+        } catch (error) {
+            console.error(error)
+        }
+        
     }
 
     return (
@@ -35,7 +54,7 @@ export default function PermissionsList({ permissionsList, serverId }: Props) {
             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} width={450} maxHeight={600} items={[
                 {
                     title: "Invite User",
-                    content: <InvitationInterface serverId={serverId}/>
+                    content: <InvitationInterface serverId={serverId} loadServers={loadServers}/>
                 }
             ]} />
 
