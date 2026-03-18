@@ -2,9 +2,12 @@ import { useState } from 'react';
 import {Pencil, Trash2, Loader2} from 'lucide-react';
 import './joined-drive-folders.css'
 import { useConfirm } from '../../hooks/useConfirm';
+import PermissionsList from '../permissions-list';
 
-type Props = {
-    servers: { id: string; name: string; path: string }[],
+type Props = { //Move this type to a common place
+    servers: { type: 'owned' | 'joined', id: string; name: string; path: string; permittedUsers: {
+        id:string,type:string, emailAddress:string, role:string, displayName:string, photoLink:string}[]
+    }[],
     loadingServers: boolean,
     serversErrors: string,
     loadServers: any
@@ -14,34 +17,24 @@ export default function JoinedDriveFolders({servers, loadingServers, serversErro
 
     const {confirm, popup} = useConfirm();
 
-    const maxSlots:number = 3;
+    const [serverId,setServerId] = useState('')
 
-    const [loadingCreate,setLoadingCreate] = useState<string | null>(null);
+    const [loadingJoin,setLoadingJoin] = useState<boolean>(false);
     const [loadingDelete,setLoadingDelete] = useState<string | null>(null);
     const [loadingDownload,setloadingDownload] = useState<string | null>(null);
     const [loadingUpload,setLoadingUpload] = useState<string | null>(null);
     const [loadingEdit,setLoadingEdit] = useState<string | null>(null);
 
 
-    async function handleCreate(key:string){
+    async function handleJoin() {
+        const result = await window.ipcRenderer.invoke("join-server", serverId);
 
-        const accepted = await confirm({
-            message:"Do you want to create a new shared folder in your Google Drive?",
-            confirmText:"Yes",
-            cancelText:"No"
-        })
-
-        if(!accepted)
-            return;
-
-        setLoadingCreate(key)
-        const result = await window.ipcRenderer.invoke("drive-create-server");
-        setLoadingCreate(null)
-        if (!result.success)
+        if (!result.success) {
             alert(result.error);
-        else 
-            alert("Server created!");
-
+            await window.ipcRenderer.invoke("open-external-link", result.link);
+            return;
+        }
+        
         loadServers();
     }
 
@@ -111,7 +104,7 @@ export default function JoinedDriveFolders({servers, loadingServers, serversErro
     }
 
     return(
-        <>
+        <div className='joined-drive-folder'>
             {popup}
 
             {!servers  && <h4>Start by creating your first server folder.</h4>}
@@ -122,7 +115,29 @@ export default function JoinedDriveFolders({servers, loadingServers, serversErro
                 </span>
                 : 
                 <ul id='servers-ul'>
-                    {servers.map(server => (
+                    <li>
+                        <span className='first-row'>
+                            <span className='list-text'>
+                                <input type="text" 
+                                placeholder='Join New Server' 
+                                value={serverId}
+                                onChange={(e)=>setServerId(e.target.value)}/>
+                            </span>
+
+                            <span>
+                                <button 
+                                className='list-button'
+                                style={{backgroundColor:"rgb(10, 30, 10)"}}
+                                onClick={handleJoin}>
+                                    {loadingJoin && <Loader2 size={12} className='spinner'/>}
+                                    Join
+                                </button>
+                            </span>
+                        </span>
+                        <span className='second-row'>Paste the ID in the field above</span>
+                    </li>
+
+                    {servers.filter(server => server.type=== 'joined').map(server => (
                         <li key={server.id}>
                             <span className='first-row'>
                                 <span className='list-text'>
@@ -162,9 +177,6 @@ export default function JoinedDriveFolders({servers, loadingServers, serversErro
                                     ? server.path
                                     : "C:\\Set the path for this folder"
                                 }
-                            </span>
-
-                            <span className='third-row'>
                                 <button
                                 className='list-button'
                                 style={{backgroundColor:"rgb(10, 10, 10)"}}
@@ -174,32 +186,15 @@ export default function JoinedDriveFolders({servers, loadingServers, serversErro
                                     Path <Pencil size={12} style={{borderBottom:"solid", borderWidth:"1px"}}/>
                                 </button>
                             </span>
+
+                            <span className='third-row'>
+                                <PermissionsList permissionsList={server.permittedUsers} serverId={server.id} loadServers={loadServers}/>
+                            </span>
                         </li>
                     )).reverse()}
-                    {Array.from({ length: maxSlots - servers.length }).map((_, index) => (
-                        <li key={`ghost-${index}`}>
-                            <span className='first-row'>
-                                <span className='list-text ghost'>
-                                    + Create New Server
-                                </span>
-
-                                <span>
-                                    <button 
-                                    className='list-button'
-                                    style={{backgroundColor:"rgb(10, 30, 10)"}}
-                                    disabled={loadingCreate === `ghost-${index}`}
-                                    onClick={()=> handleCreate(`ghost-${index}`)}>
-                                        {loadingCreate === `ghost-${index}` && <Loader2 size={12} className='spinner'/>}
-                                        Create Server
-                                    </button>
-                                </span>
-                            </span>
-                            <span className='second-row'>Empty slot</span>
-                        </li>
-                    ))}
                 </ul>
             }
             {serversErrors}
-        </>
+        </div>
     )
 }

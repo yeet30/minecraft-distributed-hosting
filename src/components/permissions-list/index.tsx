@@ -5,7 +5,7 @@ import Modal from '../modal'
 import InvitationInterface from '../invitation-interface'
 
 type Props = {
-    permissionsList: { id: string, type: string, emailAddress: string, role: string, displayName: string }[],
+    permissionsList: { id: string, type: string, emailAddress: string, role: string, displayName: string, photoLink:string}[],
     serverId: string,
     loadServers: () => void;
 }
@@ -14,7 +14,6 @@ export default function PermissionsList({ permissionsList, serverId , loadServer
 
     const [list, setList] = useState(permissionsList)
     const [isListOpen, setIsListOpen] = useState(false)
-    const [counter, setCounter] = useState(0);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     function handleMembers() {
@@ -22,8 +21,6 @@ export default function PermissionsList({ permissionsList, serverId , loadServer
     }
 
     async function handleAdd() {
-        setList([...list, { id: `${counter}`, type: "string", emailAddress: "string", role: "contributor", displayName: "User" }])
-        setCounter(counter + 1)
         setIsModalOpen(true)
     }
 

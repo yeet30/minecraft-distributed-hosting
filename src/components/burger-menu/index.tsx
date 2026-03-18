@@ -30,11 +30,11 @@ export default function BurgerMenu({ picture, driveProps }: any) {
     const items = [
         {
             title: "Your Folders",
-            content: <OwnedDriveFolders servers={driveProps.ownedServers} {...driveProps} />
+            content: <OwnedDriveFolders servers={driveProps.servers} {...driveProps} />
         },
         {
             title: "Joined Folders",
-            content: <JoinedDriveFolders servers={driveProps.joinedServers} {...driveProps} />
+            content: <JoinedDriveFolders servers={driveProps.servers} {...driveProps} />
         }
     ]
 

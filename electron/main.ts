@@ -1,9 +1,9 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { loginWithGoogle, getUserInfo, isAlreadyLoggedIn, logoutGoogle } from './services/googleAuthService'
-import { createServerFolder, deleteServerFolder,getRootWithContents,syncServer, uploadServerFolder, inviteUserToServer, removeUserPermission } from './services/googleDriveService'
+import { createServerFolder, deleteServerFolder, getRootWithContents, syncServer, uploadServerFolder, inviteUserToServer, removeUserPermission, getJoinedServers, joinServerById } from './services/googleDriveService'
 import { getServerPath, setServerPath } from './services/localServerStore'
 
 const require = createRequire(import.meta.url)
@@ -92,50 +92,62 @@ ipcMain.handle("drive-create-server", async () => {
   return await createServerFolder();
 });
 
-ipcMain.handle('drive-delete-server', async(_event, folderId) => {
+ipcMain.handle('drive-delete-server', async (_event, folderId) => {
   return await deleteServerFolder(folderId);
 })
 
-ipcMain.handle("drive-get-root", async ()=> {
+ipcMain.handle("drive-get-root", async () => {
   return await getRootWithContents();
 })
 
 ipcMain.handle("choose-directory", async () => {
-  const results = await dialog.showOpenDialog({properties: ["openDirectory"]})
+  const results = await dialog.showOpenDialog({ properties: ["openDirectory"] })
 
-  if (results.canceled || results.filePaths.length===0) return null
+  if (results.canceled || results.filePaths.length === 0) return null
 
   return results.filePaths[0];
 })
 
-ipcMain.handle("set-server-path", async (_,serverId)=> {
-  const result = await dialog.showOpenDialog({properties:["openDirectory"]})
+ipcMain.handle("set-server-path", async (_, serverId) => {
+  const result = await dialog.showOpenDialog({ properties: ["openDirectory"] })
 
-  if(result.canceled) return null
+  if (result.canceled) return null
 
-  setServerPath(serverId,result.filePaths[0])
+  setServerPath(serverId, result.filePaths[0])
 
   return result.filePaths[0]
 })
 
-ipcMain.handle("get-server-path", async (_,serverId)=> {
+ipcMain.handle("get-server-path", async (_, serverId) => {
   return getServerPath(serverId)
 })
 
-ipcMain.handle("sync-server", async(_, serverId) => {
+ipcMain.handle("sync-server", async (_, serverId) => {
   return await syncServer(serverId)
 })
 
 ipcMain.handle("upload-server-folder", async (_, serverId) => {
-    return await uploadServerFolder(serverId);
+  return await uploadServerFolder(serverId);
 })
 
 ipcMain.handle("drive-invite-user", async (_, serverId, email, message?) => {
-    return await inviteUserToServer(serverId, email, message);
+  return await inviteUserToServer(serverId, email, message);
 });
 
-ipcMain.handle("drive-remove-permission",async (_, serverId, permissionId) => {
-    return await removeUserPermission(serverId, permissionId);
+ipcMain.handle("drive-remove-permission", async (_, serverId, permissionId) => {
+  return await removeUserPermission(serverId, permissionId);
+});
+
+ipcMain.handle("get-joined-folders", async () => {
+  return await getJoinedServers();
+})
+
+ipcMain.handle("join-server", async (_, folderId) => {
+  return await joinServerById(folderId);
+});
+
+ipcMain.handle("open-external-link", async (_, url: string) => {
+  await shell.openExternal(url);
 });
 
 app.whenReady().then(createWindow)

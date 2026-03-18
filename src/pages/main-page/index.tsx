@@ -10,6 +10,7 @@ export default function MainPage(){
     const navigate = useNavigate();
 
     const [servers, setServers] = useState<{ 
+        type: 'owned' | 'joined',
         id: string; 
         name: string; 
         path: string; 
@@ -17,12 +18,9 @@ export default function MainPage(){
     }[]>([]);
     const [selectedServer, setSelectedServer] = useState<number>(0);
     const [loadingServers, setLoadingServers] = useState(false);
-    const [serversErrors,setServersErrors] = useState("");
+    const [serversErrors,setServersErrors] = useState("asd");
     const [loadingUser,setLoadingUser] = useState(false);
-    const [userProps,setUserProps] = useState({
-        name: '',
-        picture: ""
-    })
+    const [userProps,setUserProps] = useState({name: '', picture: ""})
 
     const greetingProps = {
         userProps: userProps,
@@ -32,8 +30,7 @@ export default function MainPage(){
     }
 
     const driveProps = {
-        ownedServers:servers,
-        joinedServers:[servers[0]],
+        servers: servers,
         loadingServers: loadingServers,
         serversErrors: serversErrors,
         loadServers: loadServers
@@ -57,14 +54,18 @@ export default function MainPage(){
     async function loadServers(){
         setLoadingServers(true);
 
-        const result = await window.ipcRenderer.invoke("drive-get-root");
-    
-        if (result.success)
-            setServers(result.servers);
-        else
-            setServersErrors(result.error);
+        const ownedResult = await window.ipcRenderer.invoke("drive-get-root");
+        const joinedResult = await window.ipcRenderer.invoke("get-joined-folders");
 
         setLoadingServers(false);
+
+        const owned = ownedResult.success ? ownedResult.servers : [];
+        const joined = joinedResult.success ? joinedResult.servers : [];
+
+        console.log("owned:", owned);
+        console.log("joined:", joined);
+
+        setServers([...owned, ...joined]);
     };
 
     useEffect(() =>{
@@ -74,7 +75,7 @@ export default function MainPage(){
     },[])
 
     useEffect(()=>{
-        setSelectedServer(1)
+        setSelectedServer(0)
     },[servers])
 
 

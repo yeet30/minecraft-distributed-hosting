@@ -1,78 +1,93 @@
-#loading-span{
-    display: flex;
-    flex-direction: row;
-}
+.owned-drive-wrapper {
 
-#loading-span .spinner{
-    position: relative;
-    top: 22px;
-}
+    #loading-span {
+        display: flex;
+        flex-direction: row;
+    }
 
-#loading-span h4{
-    padding-left: 10px;
-}
+    #loading-span .spinner {
+        position: relative;
+        top: 22px;
+    }
 
-#servers-ul{
-    margin-left: -10%;
-}
+    #loading-span h4 {
+        padding-left: 10px;
+    }
 
-#servers-ul li{
-    display: flex;
-    flex-direction: column;
-    list-style: none;
-    font-weight: 400;
-    font-size: 1.1rem;
-}
+    #servers-ul {
+        margin-left: -10%;
+    }
 
-.first-row{
-    display: flex;
-    align-items: start;
-    font-weight: 400;
-    display: flex;
-    flex-direction: row;
-    align-items: bottom;
-    justify-content: space-between;
-}
+    #servers-ul li {
+        display: flex;
+        flex-direction: column;
+        list-style: none;
+        margin-top: 0.5rem;
+        font-weight: 400;
+        font-size: 1.1rem;
+    }
 
-.list-text{
-    padding-top: 1px;
-}
+    .first-row {
+        display: flex;
+        align-items: start;
+        font-weight: 400;
+        display: flex;
+        flex-direction: row;
+        align-items: bottom;
+        justify-content: space-between;
+    }
 
-.list-button{
-    font-size: 1rem;
-    font-weight: 400;
-    padding: 5px 10px;
-}
+    .list-text {
+        padding-top: 1px;
+    }
 
-.second-row{
-    display: flex;
-    align-items: end;
-    justify-content: space-between;
-    padding-top: 5px;
-    font-weight: 100;
-    font-size: 0.9rem;
-    color: rgb(150, 150, 150);
-    border-bottom: solid;
-    border-width: 1px;
-}
+    .list-button {
+        font-size: 1rem;
+        font-weight: 400;
+        padding: 5px 10px;
+    }
 
-.second-row .list-button{
-    padding: 0px 8px;
-    margin-bottom: 1px;
-    font-size: 0.9rem;
-}
+    .second-row {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        padding-top: 5px;
+        font-weight: 100;
+        font-size: 0.9rem;
+        color: rgb(150, 150, 150);
+        border-bottom: solid;
+        border-width: 1px;
+    }
 
-.third-row{
-    display: flex;
-    justify-content: space-between;
-}
+    .second-row .list-button {
+        padding: 0px 8px;
+        margin-bottom: 1px;
+        font-size: 0.9rem;
+    }
 
-.spinner {
-    animation: spin 1s linear infinite;
-}
+    .third-row {
+        display: flex;
+        justify-content: space-between;
+    }
 
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
+    .third-row button {
+        padding: 0px 8px;
+        font-size: 0.9rem;
+    }
 
+    .spinner {
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        from {
+            transform: rotate(0deg);
+        }
+
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+
+}

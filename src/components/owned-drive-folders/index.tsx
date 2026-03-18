@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import {Pencil, Trash2, Loader2 } from 'lucide-react';
+import {Pencil, Trash2, Loader2} from 'lucide-react';
 import './owned-drive-folders.css'
 import { useConfirm } from '../../hooks/useConfirm';
 import PermissionsList from '../permissions-list';
 
 type Props = { //Move this type to a common place
-    servers: { id: string; name: string; path: string; permittedUsers: {
-        id:string,type:string, emailAddress:string, role:string, displayName:string}[]
+    servers: { type: 'owned'| 'joined ', id: string; name: string; path: string; permittedUsers: {
+        id:string,type:string, emailAddress:string, role:string, displayName:string, photoLink:string}[]
     }[],
     loadingServers: boolean,
     serversErrors: string,
@@ -114,7 +114,7 @@ export default function OwnedDriveFolders({servers, loadingServers, serversError
     }
 
     return(
-        <>
+        <div className='owned-drive-wrapper'>
             {popup}
 
             {!servers  && <h4>Start by creating your first server folder.</h4>}
@@ -125,7 +125,7 @@ export default function OwnedDriveFolders({servers, loadingServers, serversError
                 </span>
                 : 
                 <ul id='servers-ul'>
-                    {servers.map(server => (
+                    {servers.filter(server => server.type=== 'owned').map(server => (
                         <li key={server.id}>
                             <span className='first-row'>
                                 <span className='list-text'>
@@ -205,6 +205,6 @@ export default function OwnedDriveFolders({servers, loadingServers, serversError
                 </ul>
             }
             {serversErrors}
-        </>
+        </div>
     )
 }

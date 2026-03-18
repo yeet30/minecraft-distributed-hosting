@@ -20,7 +20,6 @@ export default function InvitationInterface({serverId, loadServers}:Props){
             alert(result.error)
             return
         }
-        console.log("sa")
         alert("Invitation sent.")
         await loadServers()
     }
@@ -40,7 +39,7 @@ export default function InvitationInterface({serverId, loadServers}:Props){
                         value={email}
                         onChange={(e)=>setEmail(e.target.value)}/>
                     </div>
-
+                    
                     <div id='role-div' className='input-div'>
                         <h4 className='input-title'>Role</h4>
                         <div className='radio-div'>

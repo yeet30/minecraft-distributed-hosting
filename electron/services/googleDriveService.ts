@@ -2,7 +2,7 @@ import { app } from "electron";
 import path from "path";
 import fs from "fs";
 import { OAuth2Client } from "google-auth-library";
-import { getServerPath } from "./localServerStore";
+import { getServerPath, addJoinedServer, getJoinedServerIds } from "./localServerStore";
 
 const DRIVE_BASE_URL = "https://www.googleapis.com/drive/v3/files";
 const ROOT_FOLDER_NAME = "Minecraft Shared Servers";
@@ -84,22 +84,37 @@ async function authorizedFetch(
   return JSON.parse(text);
 }
 
-async function findRootFolder(client: OAuth2Client) {
-  const query =
-    `name='${ROOT_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+async function debugUser(client: OAuth2Client) {
+  const res = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+    headers: {
+      Authorization: `Bearer ${client.credentials.access_token}`
+    }
+  });
 
-  const url =
-    `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}&fields=files(id,name)`;
+  console.log("ACTIVE USER:", await res.json());
+}
+
+async function findRootFolder(client: OAuth2Client) { //gets the root folder's id
+  const query = `name='${ROOT_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+
+  const url = `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}&fields=files(id,name)`;
 
   const data = await authorizedFetch(client, url, { method: "GET" });
 
-  console.log("Root:", data.files);
-
-  if (data.files && data.files.length > 0) {
+  if (data.files && data.files.length > 0)
     return data.files[0].id;
-  }
 
   return null;
+}
+
+async function countServerFolders(client: OAuth2Client, rootId: string) {
+  const query = `'${rootId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+
+  const url = `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}&fields=files(id,name)`;
+
+  const data = await authorizedFetch(client, url, {method: "GET"});
+
+  return data.files || [];
 }
 
 async function createFolder(client: OAuth2Client, name: string, parentId?: string) {
@@ -118,23 +133,6 @@ async function createFolder(client: OAuth2Client, name: string, parentId?: strin
   });
 
   return data.id;
-}
-
-async function countServerFolders(
-  client: OAuth2Client,
-  rootId: string
-) {
-  const query =
-    `'${rootId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
-
-  const url =
-    `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}&fields=files(id,name)`;
-
-  const data = await authorizedFetch(client, url, {
-    method: "GET"
-  });
-
-  return data.files || [];
 }
 
 export async function createServerFolder() {
@@ -192,10 +190,7 @@ export async function deleteServerFolder(folderId: string) {
   }
 }
 
-async function listFolderContents(
-  client: OAuth2Client,
-  folderId: string
-) {
+async function listFolderContents(client: OAuth2Client, folderId: string) {
   const query = `'${folderId}' in parents and trashed=false`;
 
   const url = `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType)`;
@@ -208,6 +203,7 @@ async function listFolderContents(
     data.files
       .filter((f: any) => f.mimeType === "application/vnd.google-apps.folder")
       .map(async (f: any) => ({
+        type: 'owned',
         id: f.id,
         name: f.name,
         path: getServerPath(f.id) || "",
@@ -266,6 +262,39 @@ export async function getRootWithContents() {
     };
   }
 }
+
+export async function getJoinedServers() {
+    const client = getOAuthClient();
+    await refreshIfNeeded(client);
+    const accessToken = client.credentials.access_token;
+
+    const ids = getJoinedServerIds();
+
+    console.log(ids)
+
+    const servers = await Promise.all(
+        ids.map(async (id) => {
+            const res = await fetch(`${DRIVE_BASE_URL}/${id}?fields=id,name`, { headers: { Authorization: `Bearer ${accessToken}` }});
+
+            if (!res.ok) return null;
+
+            const data = await res.json();
+            return {
+                type: 'joined',
+                id: data.id,
+                name: data.name,
+                path: getServerPath(data.id) || "",
+                permittedUsers: await getFolderPermissions(data.id)
+            };
+        })
+    );
+
+    return {
+        success: true,
+        servers: servers.filter(s => s !== null)
+    };
+}
+
 
 async function downloadFile(client: OAuth2Client, fileId: string) {
 
@@ -476,7 +505,7 @@ export async function getFolderPermissions(folderId: string) {
   const accessToken = client.credentials.access_token;
 
   const res = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${folderId}/permissions?fields=permissions(id,emailAddress,role,type,displayName)`,
+    `https://www.googleapis.com/drive/v3/files/${folderId}/permissions?fields=permissions(id,emailAddress,role,type,displayName,photoLink)`,
     {
       headers: {
         Authorization: `Bearer ${accessToken}`
@@ -498,14 +527,17 @@ export async function inviteUserToServer(serverId: string, email: string, messag
 
   const accessToken = client.credentials.access_token;
 
-  let defaultMessage = `Please do not make any changes in the folder manually, through the internet browser. 
-  As doing so will make the tempered files to become invisible to the desktop application. 
-  Because it can only read and write on the files it itself has uploaded, and cannot see the user's personal files.`
+  let defaultMessage = `You have been invited to a shared Minecraft server folder. To join, copy the link below and paste it in the app.
+
+  ➜ ${serverId}
+
+  Please do not make any changes in the folder manually, through the internet browser.
+  Because the application can only read and write on the files it itself has uploaded, doing so will make the tempered files to become invisible to it.`
 
   if (message)
     defaultMessage = message + '\n\n' + defaultMessage
 
-  const params = new URLSearchParams({ sendNotificationEmail: "true", emailMessage: defaultMessage });
+  const params = new URLSearchParams({ sendNotificationEmail: "true", emailMessage: defaultMessage});
 
   const res = await fetch(
     `https://www.googleapis.com/drive/v3/files/${serverId}/permissions?${params}`,
@@ -549,4 +581,48 @@ export async function removeUserPermission(serverId: string, permissionId: strin
     throw new Error(await res.text());
 
   return { success: true };
+}
+
+export async function joinServerById(folderId: string) {
+    const client = getOAuthClient();
+
+    try {
+        await refreshIfNeeded(client);
+        const accessToken = client.credentials.access_token;
+
+        const res = await fetch(
+            `https://www.googleapis.com/drive/v3/files/${folderId}?fields=id,name`,
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+
+        if (res.status === 404){
+          const text = await res.text();
+          console.log("Drive error:", text);
+          return {
+              success: false,
+              link: `https://drive.google.com/drive/folders/${folderId}`,
+              error: JSON.stringify(res)
+          };
+        }
+            
+        if (!res.ok)
+            throw new Error(await res.text());
+
+        const data = await res.json();
+
+        // Save the ID locally so we can always find it later
+        addJoinedServer(folderId);
+
+        return {
+            success: true,
+            server: {
+                id: data.id,
+                name: data.name,
+                path: getServerPath(data.id) || ""
+            }
+        };
+
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
 }
