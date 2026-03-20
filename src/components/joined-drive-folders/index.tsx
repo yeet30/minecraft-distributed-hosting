@@ -27,15 +27,22 @@ export default function JoinedDriveFolders({servers, loadingServers, serversErro
 
 
     async function handleJoin() {
-        const result = await window.ipcRenderer.invoke("join-server", serverId);
-
+        setLoadingJoin(true)
+        const result = await window.ipcRenderer.invoke("request-drive-scope");
         if (!result.success) {
             alert(result.error);
-            await window.ipcRenderer.invoke("open-external-link", result.link);
+            setLoadingJoin(false)
             return;
         }
         
-        loadServers();
+        const joinRes = await window.ipcRenderer.invoke("join-by-id", serverId)
+        if(!joinRes.success){
+            alert(joinRes.error)
+            setLoadingJoin(false)
+            return
+        }
+
+        await loadServers();
     }
 
     async function handleDelete(server:any){
@@ -115,28 +122,6 @@ export default function JoinedDriveFolders({servers, loadingServers, serversErro
                 </span>
                 : 
                 <ul id='servers-ul'>
-                    <li>
-                        <span className='first-row'>
-                            <span className='list-text'>
-                                <input type="text" 
-                                placeholder='Join New Server' 
-                                value={serverId}
-                                onChange={(e)=>setServerId(e.target.value)}/>
-                            </span>
-
-                            <span>
-                                <button 
-                                className='list-button'
-                                style={{backgroundColor:"rgb(10, 30, 10)"}}
-                                onClick={handleJoin}>
-                                    {loadingJoin && <Loader2 size={12} className='spinner'/>}
-                                    Join
-                                </button>
-                            </span>
-                        </span>
-                        <span className='second-row'>Paste the ID in the field above</span>
-                    </li>
-
                     {servers.filter(server => server.type=== 'joined').map(server => (
                         <li key={server.id}>
                             <span className='first-row'>
@@ -192,6 +177,27 @@ export default function JoinedDriveFolders({servers, loadingServers, serversErro
                             </span>
                         </li>
                     )).reverse()}
+                    <li>
+                        <span className='first-row'>
+                            <span className='list-text'>
+                                <input type="text" 
+                                placeholder='Paste the ID here.' 
+                                value={serverId}
+                                onChange={(e)=>setServerId(e.target.value)}/>
+                            </span>
+
+                            <span>
+                                <button 
+                                className='list-button'
+                                style={{backgroundColor:"rgb(10, 30, 10)"}}
+                                onClick={handleJoin}>
+                                    {loadingJoin && <Loader2 size={12} className='spinner'/>}
+                                    Join
+                                </button>
+                            </span>
+                        </span>
+                        <span className='second-row'>+ Join New Server</span>
+                    </li>
                 </ul>
             }
             {serversErrors}

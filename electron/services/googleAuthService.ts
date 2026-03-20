@@ -85,9 +85,7 @@ export async function loginWithGoogle(): Promise<{success: boolean, error?: stri
 
     //Open browser
     const authUrl = oauth2Client.generateAuthUrl({
-
       access_type: "offline",
-
       scope: [
         "https://www.googleapis.com/auth/drive.file",
         "https://www.googleapis.com/auth/userinfo.profile"
@@ -192,4 +190,58 @@ export async function logoutGoogle(): Promise<{ success: boolean}> {
   }
 }
 
+export async function requestDriveScope(): Promise<{ success: boolean, error?: string }> {
+
+    const tokenPath = path.join(app.getPath("userData"), "token.json");
+    const existing = JSON.parse(fs.readFileSync(tokenPath, "utf-8"));
+
+    // Check if drive scope is already granted
+    const scopes = existing.scope ? existing.scope.split(" ") : [];
+    if (scopes.includes("https://www.googleapis.com/auth/drive"))
+        return { success: true };
+
+    const credentialsPath = path.join(process.cwd(), "config", "client_secret.json");
+    const credentials = JSON.parse(fs.readFileSync(credentialsPath, "utf-8"));
+    const { client_id, client_secret } = credentials.installed;
+
+    const oauth2Client = new OAuth2Client(client_id, client_secret, "http://localhost:3000");
+
+    return new Promise((resolve) => {
+        const server = http.createServer(async (req, res) => {
+            try {
+                if (!req.url) return;
+                const query = url.parse(req.url, true).query;
+                const code = query.code as string;
+                if (!code) { res.end(); return; }
+
+                res.end("Permission granted. You can close this tab.");
+                server.close();
+
+                const { tokens } = await oauth2Client.getToken(code);
+
+                // Merge new tokens with existing ones
+                const tokenPath = path.join(app.getPath("userData"), "token.json");
+                const existing = JSON.parse(fs.readFileSync(tokenPath, "utf-8"));
+                fs.writeFileSync(tokenPath, JSON.stringify({ ...existing, ...tokens }));
+
+                resolve({ success: true });
+            } catch (err: any) {
+                resolve({ success: false, error: err.message });
+            }
+        });
+
+        server.listen(3000);
+
+        const authUrl = oauth2Client.generateAuthUrl({
+            access_type: "offline",
+            scope: [
+              "https://www.googleapis.com/auth/userinfo.profile",
+              "https://www.googleapis.com/auth/drive"
+            ],
+            prompt: "consent"
+        });
+
+        shell.openExternal(authUrl);
+    });
+}
 

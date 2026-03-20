@@ -2,8 +2,8 @@ import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import { loginWithGoogle, getUserInfo, isAlreadyLoggedIn, logoutGoogle } from './services/googleAuthService'
-import { createServerFolder, deleteServerFolder, getRootWithContents, syncServer, uploadServerFolder, inviteUserToServer, removeUserPermission, getJoinedServers, joinServerById } from './services/googleDriveService'
+import { loginWithGoogle, getUserInfo, isAlreadyLoggedIn, logoutGoogle, requestDriveScope } from './services/googleAuthService'
+import { createServerFolder, deleteServerFolder, getRootWithContents, syncServer, uploadServerFolder, inviteUserToServer, removeUserPermission, getJoinedServers, joinServerById} from './services/googleDriveService'
 import { getServerPath, setServerPath } from './services/localServerStore'
 
 const require = createRequire(import.meta.url)
@@ -138,16 +138,22 @@ ipcMain.handle("drive-remove-permission", async (_, serverId, permissionId) => {
   return await removeUserPermission(serverId, permissionId);
 });
 
-ipcMain.handle("get-joined-folders", async () => {
-  return await getJoinedServers();
+ipcMain.handle("join-by-id", async (_,folderId) => {
+  return await joinServerById(folderId);
 })
 
-ipcMain.handle("join-server", async (_, folderId) => {
-  return await joinServerById(folderId);
-});
+ipcMain.handle("get-joined-folders", async () => {
+  const res=  await getJoinedServers();
+  console.log("Sending to React:", res)
+  return res;
+})
 
 ipcMain.handle("open-external-link", async (_, url: string) => {
   await shell.openExternal(url);
+});
+
+ipcMain.handle("request-drive-scope", async () => {
+    return await requestDriveScope();
 });
 
 app.whenReady().then(createWindow)
