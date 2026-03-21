@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import { loginWithGoogle, getUserInfo, isAlreadyLoggedIn, logoutGoogle, requestDriveScope } from './services/googleAuthService'
+import { loginWithGoogle, getUserInfo, isAlreadyLoggedIn, logoutGoogle, isRequestAllowed, requestDriveScope } from './services/googleAuthService'
 import { createServerFolder, deleteServerFolder, getRootWithContents, syncServer, uploadServerFolder, inviteUserToServer, removeUserPermission, getJoinedServers, joinServerById} from './services/googleDriveService'
 import { getServerPath, setServerPath } from './services/localServerStore'
 
@@ -143,17 +143,19 @@ ipcMain.handle("join-by-id", async (_,folderId) => {
 })
 
 ipcMain.handle("get-joined-folders", async () => {
-  const res=  await getJoinedServers();
-  console.log("Sending to React:", res)
-  return res;
+  return await getJoinedServers();
 })
 
 ipcMain.handle("open-external-link", async (_, url: string) => {
   await shell.openExternal(url);
 });
 
+ipcMain.handle("is-request-allowed",  (): boolean => {
+  return isRequestAllowed();
+})
+
 ipcMain.handle("request-drive-scope", async () => {
-    return await requestDriveScope();
+  return await requestDriveScope();
 });
 
 app.whenReady().then(createWindow)

@@ -4,8 +4,19 @@ import './burger-menu.css';
 import Modal from "../modal";
 import OwnedDriveFolders from "../owned-drive-folders";
 import JoinedDriveFolders from "../joined-drive-folders";
+import {IServerFolder} from '../../lib/types.ts'
 
-export default function BurgerMenu({ picture, driveProps }: any) {
+type BurgerMenuProps = {
+    picture: string,
+    driveProps: {
+        servers: IServerFolder[],
+        loadingServers: boolean,
+        serversErrors: string,
+        loadServers: ()=> void
+    }
+}
+
+export default function BurgerMenu({ picture, driveProps }: BurgerMenuProps) {
 
     const navigate = useNavigate();
 
@@ -30,11 +41,11 @@ export default function BurgerMenu({ picture, driveProps }: any) {
     const items = [
         {
             title: "Your Folders",
-            content: <OwnedDriveFolders servers={driveProps.servers} {...driveProps} />
+            content: <OwnedDriveFolders {...driveProps} servers={driveProps.servers.filter((s: IServerFolder)=> s.type ==='owned')}  />
         },
         {
             title: "Joined Folders",
-            content: <JoinedDriveFolders servers={driveProps.servers} {...driveProps} />
+            content: <JoinedDriveFolders {...driveProps}  servers={driveProps.servers.filter((s: IServerFolder) => s.type === 'joined')} />
         }
     ]
 

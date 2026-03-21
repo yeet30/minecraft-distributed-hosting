@@ -3,17 +3,15 @@ import {Pencil, Trash2, Loader2} from 'lucide-react';
 import './owned-drive-folders.css'
 import { useConfirm } from '../../hooks/useConfirm';
 import PermissionsList from '../permissions-list';
+import {IServerFolder} from '../../lib/types.ts'
 
-type Props = { //Move this type to a common place
-    servers: { type: 'owned'| 'joined ', id: string; name: string; path: string; permittedUsers: {
-        id:string,type:string, emailAddress:string, role:string, displayName:string, photoLink:string}[]
-    }[],
+type Props = {
+    servers: IServerFolder[],
     loadingServers: boolean,
-    serversErrors: string,
     loadServers: any
 }
 
-export default function OwnedDriveFolders({servers, loadingServers, serversErrors,loadServers}:Props){
+export default function OwnedDriveFolders({servers, loadingServers, loadServers}:Props){
 
     const {confirm, popup} = useConfirm();
 
@@ -117,7 +115,7 @@ export default function OwnedDriveFolders({servers, loadingServers, serversError
         <div className='owned-drive-wrapper'>
             {popup}
 
-            {!servers  && <h4>Start by creating your first server folder.</h4>}
+            {!servers.length  && <h4>Start by creating your first server folder.</h4>}
             {loadingServers  
                 ? <span id='loading-span'>
                     <Loader2 size={24} className='spinner'/>
@@ -204,7 +202,6 @@ export default function OwnedDriveFolders({servers, loadingServers, serversError
                     ))}
                 </ul>
             }
-            {serversErrors}
         </div>
     )
 }

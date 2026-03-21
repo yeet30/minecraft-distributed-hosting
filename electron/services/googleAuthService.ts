@@ -190,15 +190,19 @@ export async function logoutGoogle(): Promise<{ success: boolean}> {
   }
 }
 
+export function isRequestAllowed(): boolean { // Check if drive scope is already granted
+
+  const tokenPath = path.join(app.getPath("userData"), "token.json");
+  const existing = JSON.parse(fs.readFileSync(tokenPath, "utf-8"));
+
+  const scopes = existing.scope ? existing.scope.split(" ") : [];
+  if (scopes.includes("https://www.googleapis.com/auth/drive"))
+    return true
+  
+  return false
+}
+
 export async function requestDriveScope(): Promise<{ success: boolean, error?: string }> {
-
-    const tokenPath = path.join(app.getPath("userData"), "token.json");
-    const existing = JSON.parse(fs.readFileSync(tokenPath, "utf-8"));
-
-    // Check if drive scope is already granted
-    const scopes = existing.scope ? existing.scope.split(" ") : [];
-    if (scopes.includes("https://www.googleapis.com/auth/drive"))
-        return { success: true };
 
     const credentialsPath = path.join(process.cwd(), "config", "client_secret.json");
     const credentials = JSON.parse(fs.readFileSync(credentialsPath, "utf-8"));

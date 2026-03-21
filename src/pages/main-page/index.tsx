@@ -4,18 +4,13 @@ import './main-page.css'
 import GreetingSection from "../../components/greeting-section"
 import BurgerMenu from '../../components/burger-menu';
 import MembersSection from '../../components/members-section';
+import {IServerFolder} from '../../lib/types.ts'
 
 export default function MainPage(){
 
     const navigate = useNavigate();
 
-    const [servers, setServers] = useState<{ 
-        type: 'owned' | 'joined',
-        id: string; 
-        name: string; 
-        path: string; 
-        permittedUsers: {id:string,type:string, emailAddress:string, role:string, displayName:string}[]
-    }[]>([]);
+    const [servers, setServers] = useState<IServerFolder[]>([]);
     const [selectedServer, setSelectedServer] = useState<number>(0);
     const [loadingServers, setLoadingServers] = useState(false);
     const [serversErrors,setServersErrors] = useState("");
@@ -56,17 +51,14 @@ export default function MainPage(){
 
         const ownedResult = await window.ipcRenderer.invoke("drive-get-root");
         const joinedResult = await window.ipcRenderer.invoke("get-joined-folders");
-
-        console.log("joined:", JSON.stringify(joinedResult));
-        console.log("owned:", JSON.stringify(ownedResult));
-
-        setLoadingServers(false);
-
+        
         const owned = ownedResult.success ? ownedResult.servers : [];
         const joined = joinedResult.success ? joinedResult.servers : [];
 
         setServersErrors((!ownedResult.success ? ownedResult.error : '') + (!joinedResult.success ? joinedResult.error : ''))
-        setServers([...owned, ...joined]);
+        setServers([...owned,...joined]);
+
+        setLoadingServers(false);
     };
 
     useEffect(() =>{

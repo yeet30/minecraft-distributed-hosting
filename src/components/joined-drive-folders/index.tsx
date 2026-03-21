@@ -1,24 +1,24 @@
-import { useState } from 'react';
-import {Pencil, Trash2, Loader2} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import {Pencil, Trash2, Loader2, AlertCircle, ExternalLink} from 'lucide-react';
 import './joined-drive-folders.css'
 import { useConfirm } from '../../hooks/useConfirm';
 import PermissionsList from '../permissions-list';
+import { IServerFolder } from '../../lib/types';
 
-type Props = { //Move this type to a common place
-    servers: { type: 'owned' | 'joined', id: string; name: string; path: string; permittedUsers: {
-        id:string,type:string, emailAddress:string, role:string, displayName:string, photoLink:string}[]
-    }[],
+type Props = { 
+    servers: IServerFolder[],
     loadingServers: boolean,
-    serversErrors: string,
     loadServers: any
 }
 
-export default function JoinedDriveFolders({servers, loadingServers, serversErrors,loadServers}:Props){
+export default function JoinedDriveFolders({servers, loadingServers,loadServers}:Props){
 
     const {confirm, popup} = useConfirm();
 
     const [serverId,setServerId] = useState('')
+    const [isAllowed, setIsAllowed] = useState(false)
 
+    const [loadingLaunch, setLoadingLaunch] = useState<boolean>(false);
     const [loadingJoin,setLoadingJoin] = useState<boolean>(false);
     const [loadingDelete,setLoadingDelete] = useState<string | null>(null);
     const [loadingDownload,setloadingDownload] = useState<string | null>(null);
@@ -26,22 +26,30 @@ export default function JoinedDriveFolders({servers, loadingServers, serversErro
     const [loadingEdit,setLoadingEdit] = useState<string | null>(null);
 
 
-    async function handleJoin() {
-        setLoadingJoin(true)
+    async function handleLaunch(){
+        setLoadingLaunch(true)
         const result = await window.ipcRenderer.invoke("request-drive-scope");
         if (!result.success) {
             alert(result.error);
-            setLoadingJoin(false)
             return;
         }
-        
-        const joinRes = await window.ipcRenderer.invoke("join-by-id", serverId)
-        if(!joinRes.success){
-            alert(joinRes.error)
+        setLoadingLaunch(false)
+        checkRequestAllowed()
+        loadServers()
+    }
+
+    async function handleJoin() {
+        setLoadingJoin(true)
+        const res = await window.ipcRenderer.invoke("join-by-id", serverId)
+        console.log("Res: ", res)
+        if(!res.success){
+            alert(res.error)
             setLoadingJoin(false)
             return
         }
-
+        
+        alert("Joined server!")
+        setLoadingJoin(false)
         await loadServers();
     }
 
@@ -110,11 +118,39 @@ export default function JoinedDriveFolders({servers, loadingServers, serversErro
         await loadServers();
     }
 
+    async function checkRequestAllowed(){
+        const res = await window.ipcRenderer.invoke("is-request-allowed")
+        setIsAllowed(res)
+    }
+
+    useEffect(() =>{
+        checkRequestAllowed()
+    },[])
+
     return(
         <div className='joined-drive-folder'>
             {popup}
 
-            {!servers  && <h4>Start by creating your first server folder.</h4>}
+            {(!servers.length && isAllowed)  && 
+                <h3>Paste the ID provided to you in the invitation email to join a server.</h3>
+            }
+            {!isAllowed && (
+                <div className='permission-information'>
+                    <h3>Please grant the app permission to see the folders you joined.</h3>
+                    <div className='access-statement'>
+                        <AlertCircle size={48}/>
+                        <h4> The app is only able to see the folders you give access to.</h4>
+                    </div>
+                    <span>
+                        <button 
+                        onClick={handleLaunch}
+                        disabled={loadingLaunch}>
+                            {loadingLaunch ? <Loader2 size={16} className='spinner'/> : ''}
+                            Launch Browser <ExternalLink size={16}/>
+                        </button>
+                    </span>
+                </div>
+            )}
             {loadingServers  
                 ? <span id='loading-span'>
                     <Loader2 size={24} className='spinner'/>
@@ -190,6 +226,7 @@ export default function JoinedDriveFolders({servers, loadingServers, serversErro
                                 <button 
                                 className='list-button'
                                 style={{backgroundColor:"rgb(10, 30, 10)"}}
+                                disabled={loadingJoin}
                                 onClick={handleJoin}>
                                     {loadingJoin && <Loader2 size={12} className='spinner'/>}
                                     Join
@@ -200,7 +237,6 @@ export default function JoinedDriveFolders({servers, loadingServers, serversErro
                     </li>
                 </ul>
             }
-            {serversErrors}
         </div>
     )
 }

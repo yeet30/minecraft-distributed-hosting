@@ -3,9 +3,10 @@ import './permissions-list.css'
 import { ChevronsDown, ChevronsLeft, Trash2 } from 'lucide-react'
 import Modal from '../modal'
 import InvitationInterface from '../invitation-interface'
+import { IPermittedUser } from '../../lib/types'
 
 type Props = {
-    permissionsList: { id: string, type: string, emailAddress: string, role: string, displayName: string, photoLink:string}[],
+    permissionsList: IPermittedUser[],
     serverId: string,
     loadServers: () => void;
 }
