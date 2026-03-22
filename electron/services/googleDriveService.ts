@@ -91,7 +91,7 @@ async function debugUser(client: OAuth2Client) {
 		}
 	});
 
-	console.log("ACTIVE USER:", await res.json());
+	return await res.json()
 }
 
 async function findRootFolder(client: OAuth2Client) { //gets the root folder's id
@@ -281,6 +281,13 @@ export async function getJoinedServers() {
 				return null
 
 			const data = await res.json()
+			const permissions = await getFolderPermissions(folderId);
+
+			const user = await debugUser(client)
+			const currentUserPermission = permissions.find((p: any) => p.emailAddress === user.email);
+
+			if (currentUserPermission?.role === 'owner') 
+				return null;
 
 			return {
 				type: 'joined' as const,

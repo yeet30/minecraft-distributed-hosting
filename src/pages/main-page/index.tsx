@@ -15,7 +15,7 @@ export default function MainPage(){
     const [loadingServers, setLoadingServers] = useState(false);
     const [serversErrors,setServersErrors] = useState("");
     const [loadingUser,setLoadingUser] = useState(false);
-    const [userProps,setUserProps] = useState({name: '', picture: ""})
+    const [userProps,setUserProps] = useState({name: "", email: "",picture: ""})
 
     const greetingProps = {
         userProps: userProps,
@@ -41,6 +41,7 @@ export default function MainPage(){
         const user = await window.ipcRenderer.invoke("google-get-user")
         setUserProps({
             name: user.name,
+            email: user.email,
             picture: user.picture
         });
         setLoadingUser(false)
@@ -51,12 +52,14 @@ export default function MainPage(){
 
         const ownedResult = await window.ipcRenderer.invoke("drive-get-root");
         const joinedResult = await window.ipcRenderer.invoke("get-joined-folders");
-        
+
         const owned = ownedResult.success ? ownedResult.servers : [];
         const joined = joinedResult.success ? joinedResult.servers : [];
 
         setServersErrors((!ownedResult.success ? ownedResult.error : '') + (!joinedResult.success ? joinedResult.error : ''))
         setServers([...owned,...joined]);
+
+        console.log(servers)
 
         setLoadingServers(false);
     };
@@ -81,7 +84,7 @@ export default function MainPage(){
                 <GreetingSection {...greetingProps}/>
             </section>
             <section id='menu-section'>
-                <BurgerMenu picture={userProps.picture} driveProps={driveProps}/>
+                <BurgerMenu userProps={userProps} driveProps={driveProps}/>
             </section>
         </section>
     )

@@ -7,22 +7,50 @@ import JoinedDriveFolders from "../joined-drive-folders";
 import {IServerFolder} from '../../lib/types.ts'
 
 type BurgerMenuProps = {
-    picture: string,
+    userProps: {
+        name: string,
+        email: string,
+        picture: string
+    },
     driveProps: {
         servers: IServerFolder[],
         loadingServers: boolean,
-        serversErrors: string,
         loadServers: ()=> void
     }
 }
 
-export default function BurgerMenu({ picture, driveProps }: BurgerMenuProps) {
+export default function BurgerMenu({ userProps, driveProps }: BurgerMenuProps) {
 
     const navigate = useNavigate();
 
     const [isMenuOpen, setisMenuOpen] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
+
+    const ownedProps = {
+        servers: driveProps.servers.filter((s: IServerFolder) => s.type === 'owned'),
+        loadingServers: driveProps.loadingServers,
+        userEmail: userProps.email,
+        loadServers: driveProps.loadServers
+    }
+
+    const joinedProps = {
+        servers: driveProps.servers.filter((s: IServerFolder) => s.type === 'joined'),
+        loadingServers: driveProps.loadingServers,
+        userEmail: userProps.email,
+        loadServers: driveProps.loadServers
+    }
+
+    const items = [
+        {
+            title: "Your Folders",
+            content: <OwnedDriveFolders {...ownedProps}   />
+        },
+        {
+            title: "Joined Folders",
+            content: <JoinedDriveFolders {...joinedProps} />
+        }
+    ]
 
     async function handleLogout() {
         setLoggingOut(true)
@@ -38,17 +66,6 @@ export default function BurgerMenu({ picture, driveProps }: BurgerMenuProps) {
         setIsModalOpen(true)
     }
 
-    const items = [
-        {
-            title: "Your Folders",
-            content: <OwnedDriveFolders {...driveProps} servers={driveProps.servers.filter((s: IServerFolder)=> s.type ==='owned')}  />
-        },
-        {
-            title: "Joined Folders",
-            content: <JoinedDriveFolders {...driveProps}  servers={driveProps.servers.filter((s: IServerFolder) => s.type === 'joined')} />
-        }
-    ]
-
     return (
         <section id="wrapper">
 
@@ -57,7 +74,7 @@ export default function BurgerMenu({ picture, driveProps }: BurgerMenuProps) {
             <div id="menu-clicker" onClick={() => { setisMenuOpen(!isMenuOpen) }} className={isMenuOpen ? 'open' : 'close'}>
                 <img
                     id="profile-picture"
-                    src={picture}
+                    src={userProps.picture}
                     alt="Profile Picture"
                     width="40"
                     height="40"

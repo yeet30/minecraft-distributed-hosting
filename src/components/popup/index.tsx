@@ -5,7 +5,7 @@ export default function Popup({isOpen, onClose,onAccept,confirmingOption,declini
     if(!isOpen) return null;
 
     return (
-        <div>
+        <div className='popup-wrapper'>
             <div id='popup-overlay' onClick={(e) => { e.stopPropagation(); onClose(); }}/>
                 <div id='popup' onClick={(e) => e.stopPropagation()}>
                     <div id='children'>{children}</div>

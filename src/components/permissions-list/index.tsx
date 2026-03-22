@@ -8,10 +8,11 @@ import { IPermittedUser } from '../../lib/types'
 type Props = {
     permissionsList: IPermittedUser[],
     serverId: string,
+    isOwner: boolean,
     loadServers: () => void;
 }
 
-export default function PermissionsList({ permissionsList, serverId , loadServers}: Props) {
+export default function PermissionsList({ permissionsList, serverId , isOwner, loadServers}: Props) {
 
     const [list, setList] = useState(permissionsList)
     const [isListOpen, setIsListOpen] = useState(false)
@@ -49,7 +50,7 @@ export default function PermissionsList({ permissionsList, serverId , loadServer
 
     return (
         <>
-            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} width={450} maxHeight={600} items={[
+            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} width={450} height={350} items={[
                 {
                     title: "Invite User",
                     content: <InvitationInterface serverId={serverId} loadServers={loadServers}/>
@@ -72,15 +73,14 @@ export default function PermissionsList({ permissionsList, serverId , loadServer
                                 <span id='member-username'>{member.displayName}</span>
                                 <span id='member-role'>({member.role})</span>
                                 <span id='member-remove'>
-                                    {member.role !== "owner"
-                                        ? <button id='remove-button' onClick={() => { handleRemove(member.id) }}><Trash2 size={16} /></button>
-                                        : ''
+                                    {isOwner
+                                        && <button id='remove-button' onClick={() => { handleRemove(member.id) }}><Trash2 size={16} /></button>
                                     }
                                 </span>
                             </span>
                         </span>
                     ))}
-                    <span id='invite-member'><button onClick={handleAdd}>Invite Member</button></span>
+                    {isOwner && <span id='invite-member'><button onClick={handleAdd}>Invite Member</button></span>}
                 </div>
             </div>
         </>

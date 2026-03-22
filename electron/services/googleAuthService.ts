@@ -5,247 +5,250 @@ import http from "http";
 import url from "url";
 import { OAuth2Client } from "google-auth-library";
 
-export async function loginWithGoogle(): Promise<{success: boolean, error?: string}> {
+export async function loginWithGoogle(): Promise<{ success: boolean, error?: string }> {
 
-  const credentialsPath = path.join(
-    process.cwd(),
-    "config",
-    "client_secret.json"
-  );
+	const credentialsPath = path.join(
+		process.cwd(),
+		"config",
+		"client_secret.json"
+	);
 
-  const credentials = JSON.parse(
-    fs.readFileSync(credentialsPath, "utf-8")
-  );
+	const credentials = JSON.parse(
+		fs.readFileSync(credentialsPath, "utf-8")
+	);
 
-  const { client_id, client_secret } =
-    credentials.installed;
+	const { client_id, client_secret } =
+		credentials.installed;
 
-  const redirectUri = "http://localhost:3000";
+	const redirectUri = "http://localhost:3000";
 
-  const oauth2Client = new OAuth2Client(
-    client_id,
-    client_secret,
-    redirectUri
-  );
+	const oauth2Client = new OAuth2Client(
+		client_id,
+		client_secret,
+		redirectUri
+	);
 
 
-  //Create temporary server
-  return new Promise((resolve=> {
-    const server = http.createServer(async (req, res) => {
+	//Create temporary server
+	return new Promise((resolve => {
+		const server = http.createServer(async (req, res) => {
 
-      try {
-        if (!req.url) return;
+			try {
+				if (!req.url) return;
 
-        const query = url.parse(req.url, true).query;  
-       
-        const code = query.code as string;
-        
-        if (!code) {
+				const query = url.parse(req.url, true).query;
 
-          res.end();
+				const code = query.code as string;
 
-          return;
-        }
+				if (!code) {
 
-        res.end("Login successful. You can close this tab.");
+					res.end();
 
-        server.close();
+					return;
+				}
 
-        //Exchange code for token
-        const { tokens } = await oauth2Client.getToken(code);
+				res.end("Login successful. You can close this tab.");
 
-        oauth2Client.setCredentials(tokens);
+				server.close();
 
-        //Save token
-        const tokenPath = path.join(
-          app.getPath("userData"),
-          "token.json"
-        );
+				//Exchange code for token
+				const { tokens } = await oauth2Client.getToken(code);
 
-        fs.writeFileSync(
-          tokenPath,
-          JSON.stringify(tokens)
-        );
+				oauth2Client.setCredentials(tokens);
 
-        console.log("TOKEN SAVED:", tokenPath);
+				//Save token
+				const tokenPath = path.join(
+					app.getPath("userData"),
+					"token.json"
+				);
 
-        resolve ({success:true})
-      }
-      catch (err:any) {
-        resolve({
-          success: false,
-          error: err.message
-        })
-      }
+				fs.writeFileSync(
+					tokenPath,
+					JSON.stringify(tokens)
+				);
 
-    });
-  
-    //Start server
-    server.listen(3000);
+				console.log("TOKEN SAVED:", tokenPath);
 
-    //Open browser
-    const authUrl = oauth2Client.generateAuthUrl({
-      access_type: "offline",
-      scope: [
-        "https://www.googleapis.com/auth/drive.file",
-        "https://www.googleapis.com/auth/userinfo.profile"
-      ]
-    });
+				resolve({ success: true })
+			}
+			catch (err: any) {
+				resolve({
+					success: false,
+					error: err.message
+				})
+			}
 
-    shell.openExternal(authUrl);
-    }));
+		});
+
+		//Start server
+		server.listen(3000);
+
+		//Open browser
+		const authUrl = oauth2Client.generateAuthUrl({
+			access_type: "offline",
+			scope: [
+				"https://www.googleapis.com/auth/drive.file",
+				"https://www.googleapis.com/auth/userinfo.profile",
+				"https://www.googleapis.com/auth/userinfo.email"
+			]
+		});
+
+		shell.openExternal(authUrl);
+	}));
 }
 
 export async function getUserInfo() {
 
-  const tokenPath = path.join(
-    app.getPath("userData"),
-    "token.json"
-  );
+	const tokenPath = path.join(
+		app.getPath("userData"),
+		"token.json"
+	);
 
-  const tokens = JSON.parse(
-    fs.readFileSync(tokenPath, "utf-8")
-  );
+	const tokens = JSON.parse(
+		fs.readFileSync(tokenPath, "utf-8")
+	);
 
-  const credentialsPath = path.join(
-    process.cwd(),
-    "config",
-    "client_secret.json"
-  );
+	const credentialsPath = path.join(
+		process.cwd(),
+		"config",
+		"client_secret.json"
+	);
 
-  const credentials = JSON.parse(
-    fs.readFileSync(credentialsPath, "utf-8")
-  );
+	const credentials = JSON.parse(
+		fs.readFileSync(credentialsPath, "utf-8")
+	);
 
-  const { client_id, client_secret } =
-    credentials.installed;
+	const { client_id, client_secret } =
+		credentials.installed;
 
-  const oauth2Client = new OAuth2Client(
-    client_id,
-    client_secret
-  );
+	const oauth2Client = new OAuth2Client(
+		client_id,
+		client_secret
+	);
 
-  oauth2Client.setCredentials(tokens);
+	oauth2Client.setCredentials(tokens);
 
 
-  const res = await fetch(
-    "https://www.googleapis.com/oauth2/v2/userinfo",
-    {
-      headers: {
-        Authorization:
-          `Bearer ${tokens.access_token}`
-      }
-    }
-  );
+	const res = await fetch(
+		"https://www.googleapis.com/oauth2/v2/userinfo",
+		{
+			headers: {
+				Authorization:
+					`Bearer ${tokens.access_token}`
+			}
+		}
+	);
 
-  const data= await res.json();
-  
-  return {
-    name: data.name,
-    picture: data.picture
-  }
+	const data = await res.json();
+
+	return {
+		name: data.name,
+		email: data.email,
+		picture: data.picture
+	}
 }
 
-export function isAlreadyLoggedIn(){
-  const tokenPath = path.join(
-    app.getPath("userData"),
-    "token.json"
-  );
+export function isAlreadyLoggedIn() {
+	const tokenPath = path.join(
+		app.getPath("userData"),
+		"token.json"
+	);
 
-  return fs.existsSync(tokenPath);
+	return fs.existsSync(tokenPath);
 }
 
-export async function logoutGoogle(): Promise<{ success: boolean}> {
-  try {
-    const tokenPath = path.join(app.getPath("userData"), "token.json")
+export async function logoutGoogle(): Promise<{ success: boolean }> {
+	try {
+		const tokenPath = path.join(app.getPath("userData"), "token.json")
 
-    if(!fs.existsSync(tokenPath))
-      return { success : true}
+		if (!fs.existsSync(tokenPath))
+			return { success: true }
 
-    const tokens = JSON.parse(fs.readFileSync(tokenPath,"utf-8"))
+		const tokens = JSON.parse(fs.readFileSync(tokenPath, "utf-8"))
 
-    //revoke token at google
-    if(tokens.acces_token) {
-      await fetch(
-        `https://oauth2.googleapis.com/revoke?token=${tokens.access_token}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-type":
-              "application/x-www-form-urlencoded"
-          }
-        }
-      );
-    }
+		//revoke token at google
+		if (tokens.acces_token) {
+			await fetch(
+				`https://oauth2.googleapis.com/revoke?token=${tokens.access_token}`,
+				{
+					method: "POST",
+					headers: {
+						"Content-type":
+							"application/x-www-form-urlencoded"
+					}
+				}
+			);
+		}
 
-    //Delete local token
-    fs.unlinkSync(tokenPath)
+		//Delete local token
+		fs.unlinkSync(tokenPath)
 
-    console.log("TOKEN DELETED:", tokenPath);
+		console.log("TOKEN DELETED:", tokenPath);
 
-    return {success:true}
-  }
-  catch {
-    return {success:false}
-  }
+		return { success: true }
+	}
+	catch {
+		return { success: false }
+	}
 }
 
 export function isRequestAllowed(): boolean { // Check if drive scope is already granted
 
-  const tokenPath = path.join(app.getPath("userData"), "token.json");
-  const existing = JSON.parse(fs.readFileSync(tokenPath, "utf-8"));
+	const tokenPath = path.join(app.getPath("userData"), "token.json");
+	const existing = JSON.parse(fs.readFileSync(tokenPath, "utf-8"));
 
-  const scopes = existing.scope ? existing.scope.split(" ") : [];
-  if (scopes.includes("https://www.googleapis.com/auth/drive"))
-    return true
-  
-  return false
+	const scopes = existing.scope ? existing.scope.split(" ") : [];
+	if (scopes.includes("https://www.googleapis.com/auth/drive"))
+		return true
+
+	return false
 }
 
 export async function requestDriveScope(): Promise<{ success: boolean, error?: string }> {
 
-    const credentialsPath = path.join(process.cwd(), "config", "client_secret.json");
-    const credentials = JSON.parse(fs.readFileSync(credentialsPath, "utf-8"));
-    const { client_id, client_secret } = credentials.installed;
+	const credentialsPath = path.join(process.cwd(), "config", "client_secret.json");
+	const credentials = JSON.parse(fs.readFileSync(credentialsPath, "utf-8"));
+	const { client_id, client_secret } = credentials.installed;
 
-    const oauth2Client = new OAuth2Client(client_id, client_secret, "http://localhost:3000");
+	const oauth2Client = new OAuth2Client(client_id, client_secret, "http://localhost:3000");
 
-    return new Promise((resolve) => {
-        const server = http.createServer(async (req, res) => {
-            try {
-                if (!req.url) return;
-                const query = url.parse(req.url, true).query;
-                const code = query.code as string;
-                if (!code) { res.end(); return; }
+	return new Promise((resolve) => {
+		const server = http.createServer(async (req, res) => {
+			try {
+				if (!req.url) return;
+				const query = url.parse(req.url, true).query;
+				const code = query.code as string;
+				if (!code) { res.end(); return; }
 
-                res.end("Permission granted. You can close this tab.");
-                server.close();
+				res.end("Permission granted. You can close this tab.");
+				server.close();
 
-                const { tokens } = await oauth2Client.getToken(code);
+				const { tokens } = await oauth2Client.getToken(code);
 
-                // Merge new tokens with existing ones
-                const tokenPath = path.join(app.getPath("userData"), "token.json");
-                const existing = JSON.parse(fs.readFileSync(tokenPath, "utf-8"));
-                fs.writeFileSync(tokenPath, JSON.stringify({ ...existing, ...tokens }));
+				// Merge new tokens with existing ones
+				const tokenPath = path.join(app.getPath("userData"), "token.json");
+				const existing = JSON.parse(fs.readFileSync(tokenPath, "utf-8"));
+				fs.writeFileSync(tokenPath, JSON.stringify({ ...existing, ...tokens }));
 
-                resolve({ success: true });
-            } catch (err: any) {
-                resolve({ success: false, error: err.message });
-            }
-        });
+				resolve({ success: true });
+			} catch (err: any) {
+				resolve({ success: false, error: err.message });
+			}
+		});
 
-        server.listen(3000);
+		server.listen(3000);
 
-        const authUrl = oauth2Client.generateAuthUrl({
-            access_type: "offline",
-            scope: [
-              "https://www.googleapis.com/auth/userinfo.profile",
-              "https://www.googleapis.com/auth/drive"
-            ],
-            prompt: "consent"
-        });
+		const authUrl = oauth2Client.generateAuthUrl({
+			access_type: "offline",
+			scope: [
+				"https://www.googleapis.com/auth/userinfo.profile",
+				"https://www.googleapis.com/auth/userinfo.email",
+				"https://www.googleapis.com/auth/drive"
+			],
+			prompt: "consent"
+		});
 
-        shell.openExternal(authUrl);
-    });
+		shell.openExternal(authUrl);
+	});
 }
 

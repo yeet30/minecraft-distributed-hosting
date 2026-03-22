@@ -1,39 +1,11 @@
-.owned-drive-wrapper {
-
-    #loading-span {
-        display: flex;
-        flex-direction: row;
-    }
-
-    #loading-span .spinner {
-        position: relative;
-        top: 22px;
-    }
-
-    #loading-span h4 {
-        padding-left: 10px;
-    }
-
-    #servers-ul {
-        margin: 0;
-        margin-left: -10%;
-    }
-
-    #servers-ul li {
-        display: flex;
-        flex-direction: column;
-        list-style: none;
-        margin-bottom: 1rem;
-        font-weight: 400;
-        font-size: 1.1rem;
-    }
+.server-slot{
 
     .first-row {
         display: flex;
         align-items: start;
         font-weight: 400;
         display: flex;
-        flex-direction: row;
+        flex-direction: row;    
         align-items: bottom;
         justify-content: space-between;
     }
@@ -74,10 +46,6 @@
     .third-row button {
         padding: 0px 8px;
         font-size: 0.9rem;
-    }
-
-    .spinner {
-        animation: spin 1s linear infinite;
     }
 }
 

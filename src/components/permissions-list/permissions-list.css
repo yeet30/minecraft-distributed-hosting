@@ -57,12 +57,12 @@
     transition: max-height 0.2s ease,width 0.2s ease;
     overflow: auto;
     align-items: center;
-    
 }
 
 #permissions-drawer.open{
     max-height: 200px;
     width: 100%;
+    padding-bottom: 10px;
 }
 
 #members-titles{
@@ -116,4 +116,16 @@
 #remove-button{
     background-color: rgb(100, 0, 0,0.5);
     padding-top: 5px;
+}
+
+#invite-member{
+    display: flex;
+    width: 30%;
+}
+
+#invite-member button{
+    margin-top: 10px;
+    width: 100%;
+    height: 2.5rem;
+    background-color: rgba(0, 0, 0, 0.3);
 }
