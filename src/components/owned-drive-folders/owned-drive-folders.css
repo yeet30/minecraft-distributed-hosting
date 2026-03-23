@@ -1,5 +1,7 @@
 .owned-drive-wrapper {
 
+    padding-top: 1rem;
+
     #loading-span {
         display: flex;
         flex-direction: row;

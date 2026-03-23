@@ -620,3 +620,23 @@ export async function joinServerById(folderId: string) {
 		return { success: false, error: err.message }
 	}
 }
+
+export async function renameServerFolder(folderId: string, newName: string) {
+    const client = getOAuthClient();
+    await refreshIfNeeded(client);
+    const accessToken = client.credentials.access_token;
+
+    const res = await fetch(`${DRIVE_BASE_URL}/${folderId}`, {
+        method: "PATCH",
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ name: newName })
+    });
+
+    if (!res.ok)
+        throw new Error(await res.text());
+
+    return { success: true };
+}

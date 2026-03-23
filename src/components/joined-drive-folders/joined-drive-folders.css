@@ -1,4 +1,7 @@
 .joined-drive-folder {
+
+    padding-top: 1rem;
+
     #loading-span {
         display: flex;
         flex-direction: row;

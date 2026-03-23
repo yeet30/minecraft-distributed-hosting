@@ -42,7 +42,6 @@
         height: 3px;
         width: 75%;
         background-color: rgba(70,70,70);
-        z-index: 202;
     }
 
     .tab{
@@ -68,7 +67,6 @@
     }
 
     #children {
-        padding-top: 1rem;
         max-height: 300px;
         overflow-y: auto;
     }

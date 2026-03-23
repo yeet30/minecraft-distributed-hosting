@@ -2,17 +2,12 @@ import { useState } from 'react';
 import { Loader2} from 'lucide-react';
 import './owned-drive-folders.css'
 import { useConfirm } from '../../hooks/useConfirm';
-import {IServerFolder} from '../../lib/types.ts'
 import ServerSlot from '../server-slot/index.tsx';
+import { useServerStore } from '../../store/store.ts';
 
-type Props = {
-    servers: IServerFolder[],
-    loadingServers: boolean,
-    userEmail: string,
-    loadServers: () => void
-}
+export default function OwnedDriveFolders(){
 
-export default function OwnedDriveFolders({servers, loadingServers, userEmail, loadServers}:Props){
+    const { servers, loadingServers, loadServers } = useServerStore();
 
     const {confirm, popup} = useConfirm();
 
@@ -56,13 +51,14 @@ export default function OwnedDriveFolders({servers, loadingServers, userEmail, l
                 </span>
                 : 
                 <ul id='servers-ul'>
-                    {servers.filter(server => server.type=== 'owned').map(server => (
+                    {servers.filter(server => server.type === 'owned').map(server => (
                         <li key={server.id}>
-                            <ServerSlot server={server} userEmail={userEmail} loadServers={loadServers}/>
+                            <ServerSlot server={server}/>
                         </li>
                     )).reverse()}
 
-                    {Array.from({ length: maxSlots - servers.length }).map((_, index) => (
+                    {Array.from({ length: maxSlots - servers.filter(server => server.type === 'owned').length })
+                    .map((_, index) => (
                         <li key={`ghost-${index}`}>
                             <span className='first-row'>
                                 <span className='list-text ghost'>

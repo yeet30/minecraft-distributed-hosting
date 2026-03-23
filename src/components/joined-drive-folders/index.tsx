@@ -1,20 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Loader2, AlertCircle, ExternalLink} from 'lucide-react';
 import './joined-drive-folders.css'
-import { IServerFolder } from '../../lib/types';
 import ServerSlot from '../server-slot';
+import { useServerStore, useUserStore } from '../../store/store';
 
-type Props = { 
-    servers: IServerFolder[],
-    loadingServers: boolean,
-    userEmail: string,
-    loadServers: () => void
-}
+export default function JoinedDriveFolders(){
 
-export default function JoinedDriveFolders({servers, loadingServers, userEmail, loadServers}:Props){
+    const { servers, loadingServers, loadServers } = useServerStore();
+    const { driveScopeAllowed, checkDriveScope}= useUserStore();
 
     const [serverId,setServerId] = useState('')
-    const [isAllowed, setIsAllowed] = useState(false)
     const [loadingLaunch, setLoadingLaunch] = useState(false);
     const [loadingJoin,setLoadingJoin] = useState(false);
 
@@ -26,7 +21,7 @@ export default function JoinedDriveFolders({servers, loadingServers, userEmail, 
             return;
         }
         setLoadingLaunch(false)
-        checkRequestAllowed()
+        checkDriveScope()
         loadServers()
     }
 
@@ -46,22 +41,13 @@ export default function JoinedDriveFolders({servers, loadingServers, userEmail, 
         loadServers();
     }
 
-    async function checkRequestAllowed(){
-        const res = await window.ipcRenderer.invoke("is-request-allowed")
-        setIsAllowed(res)
-    }
-
-    useEffect(() =>{
-        checkRequestAllowed()
-    },[])
-
     return(
         <div className='joined-drive-folder'>
 
-            {(!servers.length && isAllowed)  && 
+            {(!servers.length && driveScopeAllowed)  && 
                 <h3>Paste the ID provided to you in the invitation email to join a server.</h3>
             }
-            {!isAllowed && (
+            {!driveScopeAllowed && (
                 <div className='permission-information'>
                     <h3>Please grant the app permission to see the folders you joined.</h3>
                     <div className='access-statement'>
@@ -78,7 +64,7 @@ export default function JoinedDriveFolders({servers, loadingServers, userEmail, 
                     </span>
                 </div>
             )}
-            {(loadingServers  && isAllowed)
+            {(loadingServers  && driveScopeAllowed)
                 ? <span id='loading-span'>
                     <Loader2 size={24} className='spinner'/>
                     <h4>Loading servers...</h4>
@@ -87,7 +73,7 @@ export default function JoinedDriveFolders({servers, loadingServers, userEmail, 
                 <ul id='servers-ul'>
                     {servers.filter(server => server.type=== 'joined').map(server => (
                         <li key={server.id}>
-                            <ServerSlot server={server} userEmail={userEmail} loadServers={loadServers}/>
+                            <ServerSlot server={server}/>
                         </li>
                     )).reverse()}
                     <li>

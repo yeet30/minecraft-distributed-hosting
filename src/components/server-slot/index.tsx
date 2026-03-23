@@ -1,71 +1,53 @@
 import './server-slot.css'
-import { useState, useEffect } from 'react'
-import { IServerFolder } from '../../lib/types'
+import { useState, useEffect, useRef } from 'react'
+import { IServerFolder } from '../../lib/types';
 import { useConfirm } from '../../hooks/useConfirm'
-import {Pencil, Trash2, Loader2, Upload, Download} from 'lucide-react';
+import { Pencil, Trash2, Loader2, Upload, Download, Save } from 'lucide-react';
 import PermissionsList from '../permissions-list';
+import { useServerStore, useUserStore } from '../../store/store';
 
 type Props = {
-    server: IServerFolder,
-    userEmail: string,
-    loadServers: () => void
+    server : IServerFolder
 }
 
-export default function ServerSlot({ server, userEmail, loadServers }:Props){
+export default function ServerSlot({ server } : Props){
+
+    const {userEmail} = useUserStore();
+    const {loadServers} = useServerStore();
 
     const {confirm, popup} = useConfirm();
 
-    const [isOwner,setIsOwner] = useState(false)
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    const [isOwner,setIsOwner] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [nameBuffer, setNameBuffer] = useState(server.name)
     const [permissionId, setPermissionId] = useState<string | null>(null)
-    const [loadingDelete,setLoadingDelete] = useState<string | null>(null);
-    const [loadingDownload,setloadingDownload] = useState<string | null>(null);
-    const [loadingUpload,setLoadingUpload] = useState<string | null>(null);
-    const [loadingEdit,setLoadingEdit] = useState<string | null>(null);
+    const [loading, setLoading] = useState({
+        download: false,
+        upload: false,
+        delete: false,
+        path: false,
+        edit: false
+    })
 
     const listProps = {
-        permissionsList: server.permittedUsers,
-        serverId: server.id,
-        isOwner: isOwner,
-        loadServers: loadServers
+        permissionsList: server.permittedUsers, 
+        serverId: server.id, 
+        isOwner
     }
 
-    async function handleDelete(server:any){
-
-        if(isOwner){
-            const accepted = await confirm({
-                message:"Are you sure you want to delete this folder from the shared Google Drive?",
-                confirmText:"Yes",
-            })
-
-            if(!accepted)
-                return;
-
-            setLoadingDelete(server.id)
-            const result = await window.ipcRenderer.invoke("drive-delete-server", server.id);
-            setLoadingDelete(null)
-            if (!result.success) 
-                alert(result.error);
+    async function handleEdit(){
+        if(server.name !== nameBuffer){
+            setLoading(prev => ({...prev, edit:true}))
+            const res = await window.ipcRenderer.invoke("rename-server", server.id, nameBuffer)
+            if(!res.success)
+                alert(res.error)
             else
-                loadServers();
+                loadServers()
+            setLoading(prev => ({...prev, edit:false}))
         }
-        else {
-            const accepted = await confirm({
-                message:"Are you sure you want to leave from this shared Google Drive folder?",
-                confirmText:"Yes",
-            })
-
-            if(!accepted)
-                return;
-
-            setLoadingDelete(server.id)
-            const result = await window.ipcRenderer.invoke("drive-remove-permission", server.id, permissionId);
-            setLoadingDelete(null)
-            if (!result.success) 
-                alert(result.error);
-            else
-                loadServers();
-        }
-        
+        setIsEditing(false)
     }
 
     async function handleDownload(server:any){
@@ -77,9 +59,9 @@ export default function ServerSlot({ server, userEmail, loadServers }:Props){
         if(!accepted)
             return;
 
-        setloadingDownload(server.id)
+        setLoading(prev => ({...prev, download: true}))
         const result = await window.ipcRenderer.invoke("sync-server", server.id)
-        setloadingDownload(null)
+        setLoading(prev => ({...prev, download: false}))
         if (!result.success)
             alert(result.error)
         else
@@ -96,9 +78,9 @@ export default function ServerSlot({ server, userEmail, loadServers }:Props){
         if(!accepted)
             return;
 
-        setLoadingUpload(server.id)
+        setLoading(prev => ({...prev, upload: true}))
         const result = await window.ipcRenderer.invoke("upload-server-folder", server.id)
-        setLoadingUpload(null)
+        setLoading(prev => ({...prev, upload: false}))
         console.log("Result: ", result)
 
         if(!result.success)
@@ -107,10 +89,48 @@ export default function ServerSlot({ server, userEmail, loadServers }:Props){
             alert(`Files are synced up in the directory: ${server.name}`)
     }
 
-    async function handleEdit(server:any){
-        setLoadingEdit(server.id)
+    async function handleDelete(server:any){
+        if(isOwner){
+            const accepted = await confirm({
+                message:"Are you sure you want to delete this folder from the shared Google Drive?",
+                confirmText:"Yes",
+            })
+
+            if(!accepted)
+                return;
+
+            setLoading(prev => ({...prev, delete: true}))
+            const result = await window.ipcRenderer.invoke("drive-delete-server", server.id);
+            setLoading(prev => ({...prev, delete: false}))
+            if (!result.success) 
+                alert(result.error);
+            else
+                loadServers();
+        }
+        else {
+            const accepted = await confirm({
+                message:"Are you sure you want to leave from this shared Google Drive folder?",
+                confirmText:"Yes",
+            })
+
+            if(!accepted)
+                return;
+
+            setLoading(prev => ({...prev, delete: true}))
+            const result = await window.ipcRenderer.invoke("drive-remove-permission", server.id, permissionId);
+            setLoading(prev => ({...prev, delete: false}))
+            if (!result.success) 
+                alert(result.error);
+            else
+                loadServers();
+        }
+    
+    }
+
+    async function handlePath(server:any){
+        setLoading(prev => ({...prev, path: true}))
         await window.ipcRenderer.invoke("set-server-path", server.id);
-        setLoadingEdit(null)
+        setLoading(prev => ({...prev, path: false}))
         await loadServers();
     }
 
@@ -131,32 +151,60 @@ export default function ServerSlot({ server, userEmail, loadServers }:Props){
             {popup}
             <span className='first-row'>
                 <span className='list-text'>
-                    {server.name}
+
+                    <span className='server-name'>
+                        <input type="text"
+                        ref={inputRef}
+                        className='name-input'
+                        value={nameBuffer}
+                        size={nameBuffer.length || 1}
+                        readOnly = {!isEditing}
+                        onChange={ (e) => setNameBuffer(e.target.value)}/>
+                        {isEditing
+                            ?
+                            <button className='edit-button' onClick={handleEdit} disabled={loading.edit}>
+                                {loading.edit 
+                                    ?
+                                    <Loader2 size={12} className='spinner'/>
+                                    :
+                                    <Save size={12}/>
+                                }
+                            </button>
+                            :
+                            <button className='edit-button' onClick={()=>{
+                                setIsEditing(true)
+                                setTimeout(() => inputRef.current?.focus(), 0);
+                            }}>
+                                <Pencil size={12}/>
+                            </button>
+                        }
+                        
+                    </span>
+                
+                    
                 </span>
 
-                <span>
+                <span className='button-span'>
                     <button 
                     className='list-button'
-                    style={{backgroundColor:"rgb(10, 30, 10)", marginRight:"1px"}}
-                    disabled={loadingDownload === server.id}
+                    disabled={loading.download}
                     onClick={() => handleDownload(server)}>
-                        {loadingDownload === server.id && <Loader2 size={12} className='spinner'/>}
+                        {loading.download && <Loader2 size={12} className='spinner'/>}
                         <Download size={16}/>
                     </button>
                     <button 
                     className='list-button'
-                    style={{backgroundColor:"rgb(10, 10, 30)", marginRight:"1px"}}
-                    disabled={loadingUpload === server.id}
+                    disabled={loading.upload}
                     onClick={() => handleUpload(server)}>
-                        {loadingUpload === server.id && <Loader2 size={12} className='spinner'/>}
+                        {loading.upload && <Loader2 size={12} className='spinner'/>}
                         <Upload size={16}/>
                     </button>
                     <button
                     className='list-button'
                     style={{backgroundColor:"rgb(50, 0, 0)"}}
-                    disabled={loadingDelete === server.id}
+                    disabled={loading.delete}
                     onClick={()=>{handleDelete(server)}}>
-                        {loadingDelete === server.id && <Loader2 size={12} className='spinner'/>}
+                        {loading.delete && <Loader2 size={12} className='spinner'/>}
                         <Trash2 size={16}/>
                     </button>
                 </span>
@@ -169,10 +217,10 @@ export default function ServerSlot({ server, userEmail, loadServers }:Props){
                 }
                 <button
                 className='list-button'
-                style={{backgroundColor:"rgb(10, 10, 10)"}}
-                disabled={loadingEdit === server.id}
-                onClick={() => handleEdit(server)}>
-                    {loadingEdit === server.id && <Loader2 size={12} className='spinner'/>}
+                disabled={loading.path}
+                style={{backgroundColor: "rgba(0,0,0,0.5)"}}
+                onClick={() => handlePath(server)}>
+                    {loading.path && <Loader2 size={12} className='spinner'/>}
                     Path <Pencil size={12} style={{borderBottom:"solid", borderWidth:"1px"}}/>
                 </button>
             </span>

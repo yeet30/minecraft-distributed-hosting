@@ -4,15 +4,18 @@ import { ChevronsDown, ChevronsLeft, Trash2 } from 'lucide-react'
 import Modal from '../modal'
 import InvitationInterface from '../invitation-interface'
 import { IPermittedUser } from '../../lib/types'
+import { useServerStore, useUserStore } from '../../store/store'
 
 type Props = {
     permissionsList: IPermittedUser[],
     serverId: string,
     isOwner: boolean,
-    loadServers: () => void;
 }
 
-export default function PermissionsList({ permissionsList, serverId , isOwner, loadServers}: Props) {
+export default function PermissionsList({ permissionsList, serverId , isOwner}: Props) {
+
+    const {loadServers} = useServerStore();
+    const {userEmail} = useUserStore();
 
     const [list, setList] = useState(permissionsList)
     const [isListOpen, setIsListOpen] = useState(false)
@@ -49,7 +52,7 @@ export default function PermissionsList({ permissionsList, serverId , isOwner, l
     }
 
     return (
-        <>
+        <div className='permission-list-wrapper'>
             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} width={450} height={350} items={[
                 {
                     title: "Invite User",
@@ -73,7 +76,7 @@ export default function PermissionsList({ permissionsList, serverId , isOwner, l
                                 <span id='member-username'>{member.displayName}</span>
                                 <span id='member-role'>({member.role})</span>
                                 <span id='member-remove'>
-                                    {isOwner
+                                    {(isOwner && member.emailAddress !== userEmail)
                                         && <button id='remove-button' onClick={() => { handleRemove(member.id) }}><Trash2 size={16} /></button>
                                     }
                                 </span>
@@ -83,6 +86,6 @@ export default function PermissionsList({ permissionsList, serverId , isOwner, l
                     {isOwner && <span id='invite-member'><button onClick={handleAdd}>Invite Member</button></span>}
                 </div>
             </div>
-        </>
+        </div>
     )
 }

@@ -1,8 +1,32 @@
-#greeting-wrapper{
+.greeting-wrapper{
     width: 100%;
+
+    .greeting-title{
+        text-align: center;
+        margin: 0;
+        margin-top: 1rem;
+        font-size: 2rem;
+    }
+
+    .server-info{
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+    }
+
+    .starter-section {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 50dvh;
+    }
+
+    .starter-button{
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50px;
+    }
 }
 
-.greeting-title{
-    text-align: center;
-    font-size: 2rem;
-}

@@ -1,0 +1,113 @@
+.select-server-wrapper{
+
+    position: relative;
+
+    .select-button{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: relative;
+        border-radius: 20px;
+        height: 2rem;
+        width: 10rem;
+        background-color:rgb(50, 50, 50);
+        z-index: 1;
+    }
+
+    .button-title{
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        justify-content: center;
+        width: 100%;
+    }
+
+    .button-title:hover{
+        text-decoration: underline;
+    }
+
+    .server-arrow{    
+        transform: rotate(180deg);
+        transition: transform ease 0.2s;
+    }
+
+    .server-arrow.open{
+        transform: rotate(90deg);
+    }
+
+    .server-drawer{
+        display: flex;
+        flex-direction: column;
+        width:fit-content;
+        position: absolute;
+        margin-top: -20px;
+        max-height: 0px;
+        width: 10rem;
+        background-color: rgba(0, 0, 0, 0.15);
+        border-radius: 10px;
+        transition: max-height 0.3s ease;
+        overflow: auto;
+        align-items: center;
+        z-index: 0;
+    }
+
+    .server-drawer.open{
+        max-height: 150px;
+        padding-bottom: 10px;
+    }
+
+    .server-type{
+        display: flex;
+        justify-content: start;
+        align-items: center;
+        width: 100%;
+        min-height: 1.8rem;
+        border-bottom: solid 1px;
+        padding-left: 20px;
+        font-size: 1rem;
+        font-weight: 400;
+        color: rgba(150, 150, 150, 1);
+    }
+
+    .server-item{
+        display: flex;
+        border-bottom: solid 1px;
+        width: 75%;
+        padding: 5px 10px;
+    }
+
+    .server-item:hover{
+        cursor: pointer;
+        outline: auto;
+    }
+
+    .owned {
+        display: flex;
+        width: 100%;
+        justify-content: start;
+        align-items: end;
+        min-height: 3rem;
+        margin-bottom: 2px;
+        background-color: rgba(127, 255, 212, 0.1);
+    }
+
+    .joined {
+        display: flex;
+        width: 100%;
+        justify-content: start;
+        align-items: end;
+        margin-top: 0.5rem;
+        border-top: solid 1px rgba(150, 150, 150, 1);;
+        background-color:rgb(220, 20, 60, 0.1)
+    }
+
+    .item-text{
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+
+}

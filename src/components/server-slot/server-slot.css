@@ -14,10 +14,51 @@
         padding-top: 1px;
     }
 
+    .server-name{
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 1.6rem;
+    }
+
+    .name-input{
+        background: none;
+        border: none;
+        outline: none;
+        padding: 0;
+        margin: 0;
+        font-size: inherit;
+        font-family: inherit;
+        color: inherit;
+    }
+
+    .edit-button{
+        padding: 0px 10px;
+        border-radius: 10px;
+        background-color: rgba(0, 0, 0, 0.3);
+    }
+
+    .edit-button:hover{
+        cursor:pointer;
+    }
+    
+    .server-name:has(.edit-button:hover) {
+        border-bottom: solid 1px;
+    }
+
+    .button-span{
+        display:flex;
+        gap: 2px;
+    }
+
     .list-button {
+        display: flex;
+        align-items: center;
         font-size: 1rem;
         font-weight: 400;
-        padding: 5px 10px;
+        margin-left: 1px;
+        gap: 5px;
+        background-color: rgba(0, 0, 0, 0.3);
     }
 
     .second-row {
