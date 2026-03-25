@@ -10,7 +10,7 @@ export default function MainPage(){
 
     const navigate = useNavigate();
 
-    const {loadServers} = useServerStore();
+    const { loadServers } = useServerStore();
     const { loadUser, checkDriveScope } = useUserStore();
 
     async function checkLoggedIn(){

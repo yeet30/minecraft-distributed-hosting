@@ -62,6 +62,7 @@ export default function ServerSlot({ server } : Props){
         setLoading(prev => ({...prev, download: true}))
         const result = await window.ipcRenderer.invoke("sync-server", server.id)
         setLoading(prev => ({...prev, download: false}))
+        
         if (!result.success)
             alert(result.error)
         else
@@ -81,7 +82,6 @@ export default function ServerSlot({ server } : Props){
         setLoading(prev => ({...prev, upload: true}))
         const result = await window.ipcRenderer.invoke("upload-server-folder", server.id)
         setLoading(prev => ({...prev, upload: false}))
-        console.log("Result: ", result)
 
         if(!result.success)
             alert(result.error)

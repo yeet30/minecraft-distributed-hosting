@@ -22,11 +22,27 @@
         height: 50dvh;
     }
 
-    .starter-button{
+    .onOff-button{
         display: flex;
         align-items: center;
+        width: 196px;
+        height: 185px;
         justify-content: center;
-        border-radius: 50px;
+        border-radius: 50%;
+    }
+
+    .spinner {
+        animation: spin 1s linear infinite;
+    }
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
     }
 }
 

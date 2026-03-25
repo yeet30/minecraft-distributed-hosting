@@ -13,3 +13,10 @@ export interface IServerFolder {
     path: string; 
     permittedUsers: IPermittedUser[]
 }
+
+export type THostingStatus = {
+    hostName: string;
+    hostEmail: string;
+    startedAt: string;
+    expiresAt: string
+} | null;

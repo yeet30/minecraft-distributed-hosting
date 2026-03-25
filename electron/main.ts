@@ -13,12 +13,19 @@ import {
 	removeUserPermission,
 	getJoinedServers,
 	joinServerById,
-	renameServerFolder
+	renameServerFolder,
+	startServer,
+	getServerLock,
+	updateLockFile,
+	stopServer
 } from './services/googleDriveService'
-import { getServerPath, setServerPath } from './services/localServerStore'
+
+import { getServerPath, setServerPath, getSelectedIndex, setSelectedIndex } from './services/localServerStore'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+let heartbeatInterval: NodeJS.Timeout | null = null;
 
 // The built directory structure
 //
@@ -63,7 +70,6 @@ function createWindow() {
 		win.loadFile(path.join(RENDERER_DIST, 'index.html'))
 	}
 }
-
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
@@ -129,7 +135,7 @@ ipcMain.handle("set-server-path", async (_, serverId) => {
 	return result.filePaths[0]
 })
 
-ipcMain.handle("get-server-path", async (_, serverId) => {
+ipcMain.handle("get-server-path", (_, serverId) => {
 	return getServerPath(serverId)
 })
 
@@ -171,6 +177,34 @@ ipcMain.handle("request-drive-scope", async () => {
 
 ipcMain.handle("rename-server", async (_, folderId, newName) => {
 	return await renameServerFolder(folderId, newName);
+});
+
+ipcMain.handle("get-server-lock", async (_, folderId) => {
+	return await getServerLock(folderId);
+});
+
+ipcMain.handle("start-server", async (_, folderId) => {
+	heartbeatInterval = setInterval(async () => {
+        await updateLockFile(folderId);
+    }, 20000);
+
+	return await startServer(folderId);
+});
+
+ipcMain.handle("get-selected-index", () => {
+	return getSelectedIndex()
+})
+
+ipcMain.handle("set-selected-index", (_, index) => {
+	return setSelectedIndex(index)
+})
+
+ipcMain.handle("stop-server", async (_, serverId) => {
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+    }
+    return await stopServer(serverId);
 });
 
 app.whenReady().then(createWindow)

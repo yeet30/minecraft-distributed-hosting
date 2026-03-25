@@ -5,6 +5,7 @@ import fs from "fs";
 type Store = {
     paths: Record<string, string>;
     joinedServerIds: string[];
+    selectedIndex: number
 }
 
 function getStorePath() {
@@ -15,13 +16,9 @@ function readStore(): Store {
     const storePath = getStorePath();
 
     if (!fs.existsSync(storePath))
-        return { paths: {}, joinedServerIds: [] };
+        return { paths: {}, joinedServerIds: [], selectedIndex: 0 };
 
     const data = JSON.parse(fs.readFileSync(storePath, "utf-8"));
-
-    // Migrate old store format
-    if (!data.paths) 
-        return { paths: data, joinedServerIds: [] }; // preserve old paths
 
     // Ensure joinedServerIds exists
     if (!data.joinedServerIds)
@@ -60,5 +57,16 @@ export function getJoinedServerIds(): string[] {
 export function removeJoinedServer(serverId: string) {
     const store = readStore();
     store.joinedServerIds = store.joinedServerIds.filter(id => id !== serverId);
+    writeStore(store);
+}
+
+export function getSelectedIndex(){
+    const store = readStore()
+    return store.selectedIndex;
+}
+
+export function setSelectedIndex(index: number){
+    const store = readStore();
+    store.selectedIndex = index;
     writeStore(store);
 }

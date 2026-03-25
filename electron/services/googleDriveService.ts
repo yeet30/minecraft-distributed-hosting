@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs";
 import { OAuth2Client } from "google-auth-library";
 import { addJoinedServer, getJoinedServerIds, getServerPath } from "./localServerStore";
+import { getUserInfo } from "./googleAuthService";
 
 const DRIVE_BASE_URL = "https://www.googleapis.com/drive/v3/files";
 const ROOT_FOLDER_NAME = "Minecraft Shared Servers";
@@ -48,21 +49,21 @@ export async function refreshIfNeeded(client: OAuth2Client) {
 	}
 }
 
-async function authorizedFetch(
-	client: OAuth2Client,
-	url: string,
-	options: RequestInit
+async function authorizedFetch( 
+	client: OAuth2Client, 
+	url: string, 
+	options: RequestInit = { method: "GET" },
+	headers: Record<string, string> = { "Content-Type": "application/json" }
 ) {
+	
 	await refreshIfNeeded(client);
-
 	const accessToken = client.credentials.access_token;
 
 	const res = await fetch(url, {
 		...options,
 		headers: {
 			Authorization: `Bearer ${accessToken}`,
-			"Content-Type": "application/json",
-			...(options.headers || {})
+			...headers
 		}
 	});
 
@@ -119,10 +120,7 @@ async function countServerFolders(client: OAuth2Client, rootId: string) {
 
 async function createFolder(client: OAuth2Client, name: string, parentId?: string) {
 
-	const body: any = {
-		name,
-		mimeType: "application/vnd.google-apps.folder"
-	};
+	const body: any = {name, mimeType: "application/vnd.google-apps.folder"};
 
 	if (parentId)
 		body.parents = [parentId];
@@ -195,9 +193,7 @@ async function listFolderContents(client: OAuth2Client, folderId: string) {
 
 	const url = `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType)`;
 
-	const data = await authorizedFetch(client, url, {
-		method: "GET"
-	});
+	const data = await authorizedFetch(client, url, {method: "GET"});
 
 	const servers = await Promise.all(
 		data.files
@@ -224,9 +220,7 @@ async function listAllInFolder(client: OAuth2Client, folderId: string) {
 		+ `&supportsAllDrives=true`
 		+ `&includeItemsFromAllDrives=true`;
 
-	const data = await authorizedFetch(client, url, {
-		method: "GET"
-	});
+	const data = await authorizedFetch(client, url, {method: "GET"});
 
 	return data.files || [];
 }
@@ -640,3 +634,185 @@ export async function renameServerFolder(folderId: string, newName: string) {
 
     return { success: true };
 }
+
+export async function startServer(folderId: string){
+	try {
+		const lockRes = await getServerLock(folderId)
+
+		if (lockRes.isHosted) {
+			return {
+				success: false,
+				error: "This server is already being hosted.",
+				lock: lockRes.lock
+			};
+		}
+
+		const syncRes = await syncServer(folderId);
+
+		if (!syncRes.success) {
+			return {
+				success: false,
+				error: syncRes.error
+			};
+		}
+
+		await updateLockFile(folderId);
+		const ownLock = await getServerLock(folderId)
+
+    	return { 
+			success: true,
+			lock: ownLock.lock
+		};
+
+	} catch (err) {
+		return {
+			success: false,
+			error: err instanceof Error ? err.message : String(err)
+		};
+	}
+}
+
+async function uploadLockFile(
+	client: OAuth2Client, 
+	content: object, 
+	folderId: string, 
+	existingLockId?: string 
+){
+	await refreshIfNeeded(client)
+	const accessToken = client.credentials.access_token	
+	
+	const boundary = "boundary_string"
+	const metadata = JSON.stringify({
+		name: "lock.json",
+		...(!existingLockId && { parents: [folderId]}) //If there is no existing file, POSTs it inside of parent folder
+	})
+	const body_content = JSON.stringify(content)
+
+	const body = Buffer.concat([
+		Buffer.from(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`),
+		Buffer.from(metadata),
+		Buffer.from(`\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n`),
+		Buffer.from(body_content),
+		Buffer.from(`\r\n--${boundary}--\r\n`)
+	]);
+
+	const url = existingLockId
+		? `https://www.googleapis.com/upload/drive/v3/files/${existingLockId}?uploadType=multipart`
+        : `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`; //If lock exists, PATCH it
+
+	
+	const res = await fetch(url, {
+        method: existingLockId ? "PATCH" : "POST",
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": `multipart/related; boundary=${boundary}`
+        },
+        body
+    });
+
+	if(!res.ok) {
+		const text = await res.text()
+		console.error(text)
+		throw new Error(text)
+	}
+
+	return await res.json()
+}
+
+export async function updateLockFile(folderId: string){
+	const client = getOAuthClient();
+
+	const query = `'${folderId}' in parents and name='lock.json' and trashed=false`;
+    const url = `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}&fields=files(id)`;
+    const data = await authorizedFetch(client, url);
+	
+	const existingLockId = data.files?.[0]?.id
+
+	const user = await getUserInfo();
+
+	const content = {
+		hostName: user.name,
+		hostEmail: user.email,
+		startedAt: new Date(Date.now()).toISOString(),
+		expiresAt: new Date(Date.now() + 30000).toISOString()
+	}
+
+	await uploadLockFile(client, content, folderId, existingLockId)
+}
+
+export async function getServerLock(folderId: string) {
+	const client = getOAuthClient();
+
+	const query = `'${folderId}' in parents and name='lock.json' and trashed=false`;
+    const url = `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}&fields=files(id)`;
+
+    const data = await authorizedFetch(client, url);
+
+    if (!data.files || data.files.length === 0) 
+		return { isHosted: false } 
+
+	const lockFileId = data.files[0].id
+	const lockData = await authorizedFetch(
+		client,
+		`${DRIVE_BASE_URL}/${lockFileId}?alt=media`,
+		{ method: "GET" },
+		{} // no Content-Type
+	);
+
+	return {
+		isHosted: true,
+		lock: lockData
+	}
+}
+
+export async function stopServer(folderId: string){
+	try {
+		const lockRes = await getServerLock(folderId)
+
+		if(!lockRes.isHosted)
+			return {
+				success : false,
+				error: "This server is not being hosted."
+			}
+
+		const uploadRes = await uploadServerFolder(folderId)
+
+		if(!uploadRes.success)
+			return {
+				success: false,
+				error: uploadRes.error
+			}
+
+		await deleteLockFile(folderId)
+		
+		return { success: true }
+
+	} catch (err: any) {
+		return {
+			success: false,
+			error: err.message
+		}
+	}
+}
+
+export async function deleteLockFile(serverId: string){
+	const client = getOAuthClient();
+
+	const query = `'${serverId}' in parents and name='lock.json' and trashed=false`
+	const url = `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}&fields=files(id)`
+	const data = await authorizedFetch(client,url)
+
+	if(!data.files?.length)
+		return {success : true}
+
+	const lockFileId = data.files[0].id
+
+	await authorizedFetch(
+		client,
+		`${DRIVE_BASE_URL}/${lockFileId}`, 
+		{ method: "DELETE" }
+	)
+
+	return { success: true }
+}
+

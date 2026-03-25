@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { IServerFolder } from "../lib/types";
+import { IServerFolder, THostingStatus } from "../lib/types";
 
 type UserStore = {
     userName: string;
@@ -17,11 +17,14 @@ type ServerStore = {
     selectedServer: IServerFolder | null;
     loadingServers: boolean;
     serversErrors: string;
+    hostingStatus: THostingStatus | null;
+    loadingHosting: boolean;
 
+    setLoadingHosting: (loading: boolean) => void,
+    setHostingStatus: (status: THostingStatus) => void;
     setServerById: (id: string) => void;
-    setServerByIndex: (index: number) => void;
-
     loadServers: () => Promise<void>;
+    setSelectedIndex: (index: number) => Promise<void>
 }
 
 const useServerStore = create<ServerStore>((set,get) => ({
@@ -29,9 +32,12 @@ const useServerStore = create<ServerStore>((set,get) => ({
     selectedServer: null,
     loadingServers: false,
     serversErrors: "",
+    hostingStatus: null,
+    loadingHosting: true,
 
+    setLoadingHosting: (loading: boolean) => set({loadingHosting: loading}),
+    setHostingStatus: (status: THostingStatus) => set({hostingStatus: status}),
     setServerById: (id:string) => set({ selectedServer: get().servers.find(server=> server.id === id) }),
-    setServerByIndex: (index: number) => set({ selectedServer: get().servers[index] }),
 
     loadServers : 
         async function() {
@@ -39,6 +45,7 @@ const useServerStore = create<ServerStore>((set,get) => ({
 
             const ownedResult = await window.ipcRenderer.invoke("drive-get-root");
             const joinedResult = await window.ipcRenderer.invoke("get-joined-folders");
+            const index = await window.ipcRenderer.invoke("get-selected-index")
 
             const owned = ownedResult.success ? ownedResult.servers : [];
             const joined = joinedResult.success ? joinedResult.servers : [];
@@ -46,10 +53,16 @@ const useServerStore = create<ServerStore>((set,get) => ({
 
             set({
                 servers,
-                selectedServer: servers[0] ?? null,
+                selectedServer: servers[index] ?? servers[0] ?? null,
                 serversErrors: (!ownedResult.success ? ownedResult.error : '') + (!joinedResult.success ? joinedResult.error : ''),
                 loadingServers: false
             });
+
+        },
+
+    setSelectedIndex:
+        async function(index:number) {
+            await window.ipcRenderer.invoke("set-selected-index", index)
         }
 }));
 
@@ -78,5 +91,7 @@ const useUserStore = create<UserStore>((set) => ({
             set({driveScopeAllowed: res})
         },
 }))
+
+
 
 export {useServerStore, useUserStore};

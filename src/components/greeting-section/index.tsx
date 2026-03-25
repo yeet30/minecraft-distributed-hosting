@@ -1,20 +1,47 @@
 import './greeting-section.css'
-import { useUserStore } from '../../store/store'
+import { useServerStore, useUserStore } from '../../store/store'
 import SelectServer from '../select-server';
+import { Loader2, Power, Square } from 'lucide-react';
 import { useState } from 'react';
-import { Power } from 'lucide-react';
 
-export default function GreetingSection(){
 
-    const {userName, loadingUser} = useUserStore();
+export default function GreetingSection() {
 
-    const [isHosted,setIsHosted] = useState(true)
+    const { userName, userEmail, loadingUser } = useUserStore();
+    const { selectedServer, hostingStatus, loadingServers, loadingHosting, setHostingStatus } = useServerStore();
 
-    async function handleStart(){
-        
+    const [loadingOnOff, setLoadingOnOff] = useState(false)
+
+    async function handleStart() {
+        if (loadingServers || !selectedServer) return
+        setLoadingOnOff(true)
+        const result = await window.ipcRenderer.invoke("start-server", selectedServer.id)
+        if (!result.success) {
+            setHostingStatus(result.lock ?? null)
+            alert(result.error)
+            setLoadingOnOff(false)
+            return
+        }
+        setHostingStatus(result.lock)
+        alert(`Files are synced up in the directory: ${selectedServer.path}`)
+        setLoadingOnOff(false)
     }
 
-    if(loadingUser)
+    async function handleStop() {
+        if (!hostingStatus || !selectedServer) return 
+        setLoadingOnOff(true)
+        const res = await window.ipcRenderer.invoke("stop-server", selectedServer.id)
+        if (!res.success) {
+            setLoadingOnOff(false)
+            alert(res.error)
+            return
+        }
+        setHostingStatus(null)
+        alert(`Files are downloaded to the directory: ${selectedServer.path}`)
+        setLoadingOnOff(false)
+    }
+
+    if (loadingUser)
         return <h2 className="greeting-title">Loading user information...</h2>
     else
         return (
@@ -23,18 +50,41 @@ export default function GreetingSection(){
 
                 <div className='starter-section'>
                     <div className='button-wrapper'>
-                        <button className='starter-button' onClick={handleStart}>
-                            <Power size={128}/>
-                        </button>
+                        {hostingStatus
+                            ?
+                                <button 
+                                className='onOff-button' 
+                                onClick={handleStop} 
+                                disabled={hostingStatus.hostEmail !== userEmail}>
+                                    {loadingOnOff  
+                                        ? <Loader2 size={128} className='spinner'/>
+                                        : <Square size={120} fill="currentColor"/>
+                                    }
+                                </button>
+                            :
+                                <button className='onOff-button' onClick={handleStart} disabled={loadingOnOff}>
+                                    {loadingOnOff 
+                                        ? <Loader2 size={128} className='spinner'/>
+                                        : <Power size={128}/>
+                                    }
+                                </button>
+                        }
+                        
                     </div>
                 </div>
 
                 <div className='server-info'>
-                    <span><SelectServer/></span> 
-                    {isHosted
-                        ? <h4>is currently hosted by Player-1</h4>
-                        : <h4>is not being hosted right now.</h4>
-                    }
+                    <span><SelectServer /></span>
+                    <h4>
+                        {loadingHosting
+                            ? "... the server"
+                            : (hostingStatus)
+                                ? `is currently hosted by ${hostingStatus.hostEmail===userEmail
+                                    ? " you."
+                                    : `${hostingStatus.hostName}`
+                                }`
+                                : "is not being hosted right now."}
+                    </h4>
                 </div>
             </section>
         )
