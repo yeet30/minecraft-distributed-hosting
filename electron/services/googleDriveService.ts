@@ -637,16 +637,20 @@ export async function renameServerFolder(folderId: string, newName: string) {
 
 export async function startServer(folderId: string){
 	try {
-		const lockRes = await getServerLock(folderId)
+		const lockRes = await getServerLock(folderId);
 
 		if (lockRes.isHosted) {
-			return {
+			const now = new Date();
+			const expiresAt = new Date(lockRes.lock.expiresAt);
+
+			if (expiresAt >= now) {
+				return {
 				success: false,
 				error: "This server is already being hosted.",
 				lock: lockRes.lock
-			};
+				};
+			}
 		}
-
 		const syncRes = await syncServer(folderId);
 
 		if (!syncRes.success) {
@@ -758,6 +762,8 @@ export async function getServerLock(folderId: string) {
 		{ method: "GET" },
 		{} // no Content-Type
 	);
+
+	console.log(lockData)
 
 	return {
 		isHosted: true,

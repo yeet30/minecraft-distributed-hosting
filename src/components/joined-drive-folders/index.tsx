@@ -1,29 +1,17 @@
 import { useState } from 'react';
-import { Loader2, AlertCircle, ExternalLink} from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import './joined-drive-folders.css'
 import ServerSlot from '../server-slot';
 import { useServerStore, useUserStore } from '../../store/store';
+import PermissionInformation from '../permission-information';
 
 export default function JoinedDriveFolders(){
 
     const { servers, loadingServers, loadServers } = useServerStore();
-    const { driveScopeAllowed, checkDriveScope}= useUserStore();
+    const { driveScopeAllowed} = useUserStore();
 
     const [serverId,setServerId] = useState('')
-    const [loadingLaunch, setLoadingLaunch] = useState(false);
     const [loadingJoin,setLoadingJoin] = useState(false);
-
-    async function handleLaunch(){
-        setLoadingLaunch(true)
-        const result = await window.ipcRenderer.invoke("request-drive-scope");
-        if (!result.success) {
-            alert(result.error);
-            return;
-        }
-        setLoadingLaunch(false)
-        checkDriveScope()
-        loadServers()
-    }
 
     async function handleJoin() {
         setLoadingJoin(true)
@@ -47,23 +35,7 @@ export default function JoinedDriveFolders(){
             {(!servers.length && driveScopeAllowed)  && 
                 <h3>Paste the ID provided to you in the invitation email to join a server.</h3>
             }
-            {!driveScopeAllowed && (
-                <div className='permission-information'>
-                    <h3>Please grant the app permission to see the folders you joined.</h3>
-                    <div className='access-statement'>
-                        <AlertCircle size={48}/>
-                        <h4> The app is only able to see the folders you give access to.</h4>
-                    </div>
-                    <span>
-                        <button 
-                        onClick={handleLaunch}
-                        disabled={loadingLaunch}>
-                            {loadingLaunch ? <Loader2 size={16} className='spinner'/> : ''}
-                            Launch Browser <ExternalLink size={16}/>
-                        </button>
-                    </span>
-                </div>
-            )}
+            <PermissionInformation/>
             {(loadingServers  && driveScopeAllowed)
                 ? <span id='loading-span'>
                     <Loader2 size={24} className='spinner'/>

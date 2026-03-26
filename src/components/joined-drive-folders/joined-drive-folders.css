@@ -21,52 +21,6 @@
         margin-left: -10%;
     }
 
-    .permission-information {
-        margin-top: 1rem;
-        padding: 10px 20px;
-        border-radius: 10px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        gap: 1rem;
-        background-color: rgba(0, 0, 0,0.1);
-    }
-
-    .permission-information h3{
-        margin: 0;
-    }
-
-    .access-statement{
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        border-radius: 10px;
-        padding: 0px 10px;
-        background-color: rgba(255, 255, 0, 0.04);
-        gap: 10px;
-    }
-
-    .access-statement h4{
-        margin-top: 1rem;
-        display: flex;
-        align-items: center;
-        page: 5px;
-    }
-
-    .permission-information span{
-        display: flex;
-        flex-direction: row-reverse;
-    }
-
-    .permission-information button{
-        padding: 10px 20px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 5px;
-        background-color: rgba(0, 0, 0,0.15);
-    }
-
     #servers-ul li {
         display: flex;
         flex-direction: column;

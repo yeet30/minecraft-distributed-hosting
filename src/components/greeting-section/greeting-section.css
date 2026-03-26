@@ -8,13 +8,6 @@
         font-size: 2rem;
     }
 
-    .server-info{
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 5px;
-    }
-
     .starter-section {
         display: flex;
         align-items: center;

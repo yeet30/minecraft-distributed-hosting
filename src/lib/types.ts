@@ -15,6 +15,7 @@ export interface IServerFolder {
 }
 
 export type THostingStatus = {
+    isHosted: boolean,
     hostName: string;
     hostEmail: string;
     startedAt: string;
