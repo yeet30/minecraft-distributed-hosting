@@ -639,18 +639,13 @@ export async function startServer(folderId: string){
 	try {
 		const lockRes = await getServerLock(folderId);
 
-		if (lockRes.isHosted) {
-			const now = new Date();
-			const expiresAt = new Date(lockRes.lock.expiresAt);
-
-			if (expiresAt >= now) {
-				return {
+		if (lockRes.isHosted) 
+			return {
 				success: false,
 				error: "This server is already being hosted.",
 				lock: lockRes.lock
-				};
-			}
-		}
+			};
+
 		const syncRes = await syncServer(folderId);
 
 		if (!syncRes.success) {
@@ -665,7 +660,10 @@ export async function startServer(folderId: string){
 
     	return { 
 			success: true,
-			lock: ownLock.lock
+			hostingStatus: {
+				isHosted: true,
+				lock: ownLock.lock
+			}
 		};
 
 	} catch (err) {
@@ -763,7 +761,27 @@ export async function getServerLock(folderId: string) {
 		{} // no Content-Type
 	);
 
-	console.log(lockData)
+	const now = new Date();
+	const expiresAt = new Date(lockData.expiresAt);
+
+	if (now > expiresAt) {
+		try {
+			await deleteLockFile(folderId)
+		} catch (error:any) {
+			let parsed;
+			try {
+				parsed = JSON.parse(error.message);
+			} catch {
+				console.error("Non-JSON error:", error.message);
+			}
+
+			if (parsed.error.code !== 403) {
+				console.error(parsed.error.message);
+			}
+		}		
+		return { isHosted: false };
+	}
+        
 
 	return {
 		isHosted: true,
@@ -788,8 +806,25 @@ export async function stopServer(folderId: string){
 				success: false,
 				error: uploadRes.error
 			}
+		
+		try {
+			await deleteLockFile(folderId)
+		} catch (error) {
+			try {
+				await deleteLockFile(folderId)
+			} catch (error:any) {
+				let parsed;
+				try {
+					parsed = JSON.parse(error.message);
+				} catch {
+					console.error("Non-JSON error:", error.message);
+				}
 
-		await deleteLockFile(folderId)
+				if (parsed.error.code !== 403) {
+					console.error(parsed.error.message);
+				}
+			}	
+		}		
 		
 		return { success: true }
 

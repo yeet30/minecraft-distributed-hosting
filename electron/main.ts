@@ -26,6 +26,7 @@ const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 let heartbeatInterval: NodeJS.Timeout | null = null;
+let currentHostingServerId: string | null = null;
 
 // The built directory structure
 //
@@ -88,6 +89,18 @@ app.on('activate', () => {
 	}
 })
 
+app.on('will-quit', async (event) => {
+	console.log(currentHostingServerId)
+    if (currentHostingServerId) {
+        event.preventDefault();
+        clearInterval(heartbeatInterval!);
+        heartbeatInterval = null;
+        await stopServer(currentHostingServerId);
+        currentHostingServerId = null;
+        app.quit();
+    }
+});
+
 ipcMain.handle("google-login", async () => {
 	const result = await loginWithGoogle();
 	return result;
@@ -102,7 +115,14 @@ ipcMain.handle("google-is-logged-in", () => {
 })
 
 ipcMain.handle("google-logout", async () => {
-	return await logoutGoogle();
+	console.log(currentHostingServerId)
+	if (currentHostingServerId) {
+        clearInterval(heartbeatInterval!);
+        heartbeatInterval = null;
+        await stopServer(currentHostingServerId);
+        currentHostingServerId = null;
+    }
+    return await logoutGoogle();
 })
 
 ipcMain.handle("drive-create-server", async () => {
@@ -184,11 +204,16 @@ ipcMain.handle("get-server-lock", async (_, folderId) => {
 });
 
 ipcMain.handle("start-server", async (_, folderId) => {
-	heartbeatInterval = setInterval(async () => {
-        await updateLockFile(folderId);
-    }, 20000);
-
-	return await startServer(folderId);
+	const result = await startServer(folderId);
+    if (result.success) {
+        currentHostingServerId = folderId;
+        heartbeatInterval = setInterval(async () => {
+            await updateLockFile(folderId);
+        }, 20000);
+    }
+	console.log("Current Hosted Server Id: ", currentHostingServerId)
+	console.log(heartbeatInterval && "Heartbeat exists" )
+	return result;
 });
 
 ipcMain.handle("get-selected-index", () => {
@@ -200,10 +225,9 @@ ipcMain.handle("set-selected-index", (_, index) => {
 })
 
 ipcMain.handle("stop-server", async (_, serverId) => {
-    if (heartbeatInterval) {
-        clearInterval(heartbeatInterval);
-        heartbeatInterval = null;
-    }
+    clearInterval(heartbeatInterval!);
+    heartbeatInterval = null;
+    currentHostingServerId = null;
     return await stopServer(serverId);
 });
 

@@ -45,7 +45,7 @@ export default function SelectServer(){
             setHostingStatus(null)
             return 
         }
-        setHostingStatus(res.lock)
+        setHostingStatus(res)
     }
 
     useEffect(()=>{
@@ -100,10 +100,10 @@ export default function SelectServer(){
             <h4>
                 {loadingHosting
                     ? "... the server"
-                    : (hostingStatus?.isHosted)
-                        ? `is currently hosted by ${hostingStatus.hostEmail===userEmail
+                    : (hostingStatus && hostingStatus?.isHosted)
+                        ? `is currently hosted by ${hostingStatus.lock.hostEmail===userEmail
                             ? " you."
-                            : `${hostingStatus.hostName}`
+                            : `${hostingStatus.lock.hostName}`
                         }`
                         : "is not being hosted right now."}
             </h4>

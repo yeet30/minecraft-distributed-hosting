@@ -17,12 +17,12 @@ export default function GreetingSection() {
         setLoadingOnOff(true)
         const result = await window.ipcRenderer.invoke("start-server", selectedServer.id)
         if (!result.success) {
-            setHostingStatus(result.lock ?? null)
+            setHostingStatus(null)
             alert(result.error)
             setLoadingOnOff(false)
             return
         }
-        setHostingStatus(result.lock)
+        setHostingStatus(result.hostingStatus)
         alert(`Files are synced up in the directory: ${selectedServer.path}`)
         setLoadingOnOff(false)
     }
@@ -55,12 +55,12 @@ export default function GreetingSection() {
             <h2 className="greeting-title">Welcome, {userName}!</h2>
             <div className='starter-section'>
                 <div className='button-wrapper'>
-                    {hostingStatus?.isHosted
+                    {hostingStatus && hostingStatus?.isHosted
                         ?
                             <button 
                             className='onOff-button' 
                             onClick={handleStop} 
-                            disabled={hostingStatus.hostEmail !== userEmail}>
+                            disabled={hostingStatus.lock.hostEmail !== userEmail}>
                                 {loadingOnOff  
                                     ? <Loader2 size={128} className='spinner'/>
                                     : <Square size={120} fill="currentColor"/>

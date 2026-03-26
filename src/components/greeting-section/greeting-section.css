@@ -1,5 +1,8 @@
 .greeting-wrapper{
     width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 
     .greeting-title{
         text-align: center;
