@@ -1,3 +1,10 @@
+import { ReactNode } from "react";
+
+export interface IModalItems {
+    title: string,
+    content: ReactNode
+}
+
 export interface IPermittedUser{
     id:string,
     type:string, 
@@ -19,7 +26,8 @@ export type THostingStatus = {
     lock: {
         hostName: string;
         hostEmail: string;
+        hostedAd: string;
         startedAt: string;
-        expiresAt: string
+        expiresAt: string;
     }
 } | null;

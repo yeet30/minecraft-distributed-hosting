@@ -1,22 +1,30 @@
 import { app } from "electron";
 import path from "path";
 import fs from "fs";
+import { LocalVariables } from "../../src/lib/types";
 
 type Store = {
     paths: Record<string, string>;
     joinedServerIds: string[];
-    selectedIndex: number
+    localVariables: {
+        selectedIndex: number,
+        playitggPath: string
+    }
 }
 
 function getStorePath() {
-    return path.join(app.getPath("userData"), "serverPaths.json");
+    return path.join(app.getPath("userData"), "localStore.json");
 }
 
 function readStore(): Store {
     const storePath = getStorePath();
 
     if (!fs.existsSync(storePath))
-        return { paths: {}, joinedServerIds: [], selectedIndex: 0 };
+        return { paths: {}, joinedServerIds: [], localVariables: {
+                selectedIndex: 0, 
+                playitggPath: ""
+            } 
+        }
 
     const data = JSON.parse(fs.readFileSync(storePath, "utf-8"));
 
@@ -60,13 +68,13 @@ export function removeJoinedServer(serverId: string) {
     writeStore(store);
 }
 
-export function getSelectedIndex(){
+export function getLocalVariable(variable: keyof LocalVariables){
     const store = readStore()
-    return store.selectedIndex;
+    return store.localVariables[variable];
 }
 
-export function setSelectedIndex(index: number){
-    const store = readStore();
-    store.selectedIndex = index;
-    writeStore(store);
+export function setLocalVariable<K extends keyof LocalVariables>(variable: K, value: LocalVariables[K]) {
+  const store = readStore();
+  store.localVariables[variable] = value;
+  writeStore(store);
 }

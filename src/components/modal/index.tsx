@@ -1,13 +1,11 @@
 import './modal.css'
-import { ReactNode, useState } from 'react';
+import { useState } from 'react';
+import { IModalItems } from '../../lib/types';
 
 interface IModal {
     isOpen: boolean,
     onClose: () => void,
-    items: {
-        title: string,
-        content: ReactNode
-    }[],
+    items: IModalItems[],
     width?: number,
     height?: number
 }

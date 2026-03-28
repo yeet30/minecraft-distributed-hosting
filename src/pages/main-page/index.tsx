@@ -4,14 +4,15 @@ import './main-page.css'
 import GreetingSection from "../../components/greeting-section"
 import BurgerMenu from '../../components/burger-menu';
 import MembersSection from '../../components/members-section';
-import { useUserStore, useServerStore } from '../../store/store.ts'
+import { useUserStore, useServerStore, useLocalStore } from '../../store/store.ts'
 
 export default function MainPage(){
 
     const navigate = useNavigate();
 
-    const { loadServers } = useServerStore();
+    const { loadServers, setServerByIndex } = useServerStore();
     const { loadUser, checkDriveScope } = useUserStore();
+    const { loadLocalVariables } = useLocalStore();
 
     async function checkLoggedIn(){
         const loggedIn = await window.ipcRenderer.invoke("google-is-logged-in");
@@ -19,10 +20,17 @@ export default function MainPage(){
     }
 
     useEffect(() =>{
-        checkLoggedIn();
-        loadUser();
-        loadServers();
-        checkDriveScope();
+        async function init() {
+            await checkLoggedIn();
+            await loadUser();
+            await checkDriveScope();
+            await loadLocalVariables();
+            await loadServers();
+
+            const index = useLocalStore.getState().selectedIndex;
+            setServerByIndex(index);
+        }
+        init()
     },[])
 
 

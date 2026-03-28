@@ -2,6 +2,8 @@ import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import { LocalVariables } from '../src/store/store'
+import { exec } from "child_process";
 import { loginWithGoogle, getUserInfo, isAlreadyLoggedIn, logoutGoogle, isRequestAllowed, requestDriveScope } from './services/googleAuthService'
 import {
 	createServerFolder,
@@ -17,10 +19,11 @@ import {
 	startServer,
 	getServerLock,
 	updateLockFile,
-	stopServer
+	stopServer,
 } from './services/googleDriveService'
 
-import { getServerPath, setServerPath, getSelectedIndex, setSelectedIndex } from './services/localServerStore'
+import { launchServerConsole, launchPlayitggConsole, setPlayitggProcess, setServerProcess, getServerProcess, getPlayitggProcess} from './services/childrenProcesses'
+import { getServerPath, setServerPath, getLocalVariable, setLocalVariable } from './services/localServerStore'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -101,6 +104,72 @@ app.on('will-quit', async (event) => {
     }
 });
 
+
+
+ipcMain.handle("launch-server-consoles", async (_, serverPath: string, playitggPath: string) => {
+	const serverProcess = await launchServerConsole(serverPath)
+	const playitggProcess = await launchPlayitggConsole(playitggPath)
+
+	if((!serverProcess) || (!playitggProcess))
+		return {
+			success: false,
+		}
+
+    serverProcess.stdout?.on("data", (data) => {
+		win?.webContents.send("server-output", data.toString());
+	});
+
+	serverProcess?.stderr?.on("data", (data) => {
+		win?.webContents.send("server-output", data.toString());
+	});
+
+	serverProcess?.on("close", (code) => {
+		win?.webContents.send("server-output", `\n[System] Server process exited with code ${code}\n`);
+		win?.webContents.send("server-stopped");
+		setServerProcess(null)
+	});
+
+	playitggProcess.stdout?.on("data", (data) => {
+		const match = data
+		.toString("utf-8")
+		.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, "")
+		.match(/([a-zA-Z0-9.-]+\.joinmc\.link)\s*=>/);
+
+		if (match) {
+			const link = match[1];
+			console.log(link);
+			win?.webContents.send("playitgg-output", link);
+		}
+    });
+	
+	return { success: true };
+});
+
+ipcMain.handle("send-server-command", (_, command: string) => {
+	const serverProcess = getServerProcess();
+    if (!serverProcess)
+        return { success: false, error: "Server is not running." };
+
+    serverProcess.stdin?.write(command + "\n");
+
+    return { success: true };
+});
+
+ipcMain.handle("stop-server-consoles", async () => {
+	const serverProcess = getServerProcess();
+	const playitggProcess = getPlayitggProcess();
+
+    if ((!serverProcess) || (!playitggProcess))
+        return { success: false, error: "Server is not running." };
+
+    serverProcess.stdin?.write("stop\n");
+	const pid = playitggProcess.pid;
+    exec(`taskkill /PID ${pid} /T /F`);
+    setPlayitggProcess(null)
+	
+    return { success: true };
+});
+
 ipcMain.handle("google-login", async () => {
 	const result = await loginWithGoogle();
 	return result;
@@ -137,12 +206,14 @@ ipcMain.handle("drive-get-root", async () => {
 	return await getRootWithContents();
 })
 
-ipcMain.handle("choose-directory", async () => {
-	const results = await dialog.showOpenDialog({ properties: ["openDirectory"] })
+ipcMain.handle("choose-file-directory", async () => {
+	const result = await dialog.showOpenDialog({ properties: ["openFile"] })
 
-	if (results.canceled || results.filePaths.length === 0) return null
+	if (result.canceled) return null;
 
-	return results.filePaths[0];
+	const filePath = result.filePaths[0];
+
+	return filePath;
 })
 
 ipcMain.handle("set-server-path", async (_, serverId) => {
@@ -216,13 +287,14 @@ ipcMain.handle("start-server", async (_, folderId) => {
 	return result;
 });
 
-ipcMain.handle("get-selected-index", () => {
-	return getSelectedIndex()
-})
+ipcMain.handle("get-local-variable", async (_, variable: keyof LocalVariables) => {
+    return getLocalVariable(variable);
+});
 
-ipcMain.handle("set-selected-index", (_, index) => {
-	return setSelectedIndex(index)
-})
+ipcMain.handle("set-local-variable", async (_, variable: keyof LocalVariables, value: LocalVariables[typeof variable]) => {
+    setLocalVariable(variable, value);
+    return true;
+});
 
 ipcMain.handle("stop-server", async (_, serverId) => {
     clearInterval(heartbeatInterval!);

@@ -19,13 +19,27 @@ type ServerStore = {
     serversErrors: string;
     hostingStatus: THostingStatus | null;
     loadingHosting: boolean;
-
+    
     setLoadingHosting: (loading: boolean) => void,
     setHostingStatus: (status: THostingStatus) => void;
     setServerById: (id: string) => void;
+    setServerByIndex: (index:number) => void
     loadServers: () => Promise<void>;
-    setSelectedIndex: (index: number) => Promise<void>
 }
+
+export interface LocalVariables{
+    selectedIndex: number;
+    playitggPath: string;
+    allocatedRAM: {
+        MIN: number,
+        MAX: number
+    }
+
+    loadLocalVariables: () => Promise<void>
+    setSelectedIndex: (index: number) => Promise<void>
+    setAllocatedRAM: (min: number, max: number) => Promise<void>
+    setPlayitggPath: (path: string) => void
+};
 
 const useServerStore = create<ServerStore>((set,get) => ({
     servers: [],
@@ -38,6 +52,7 @@ const useServerStore = create<ServerStore>((set,get) => ({
     setLoadingHosting: (loading: boolean) => set({loadingHosting: loading}),
     setHostingStatus: (status: THostingStatus) => set({hostingStatus: status}),
     setServerById: (id:string) => set({ selectedServer: get().servers.find(server=> server.id === id) }),
+    setServerByIndex: (index:number) => set({ selectedServer: get().servers[index] ?? get().servers[0] ?? null }),
 
     loadServers : 
         async function() {
@@ -45,7 +60,6 @@ const useServerStore = create<ServerStore>((set,get) => ({
 
             const ownedResult = await window.ipcRenderer.invoke("drive-get-root");
             const joinedResult = await window.ipcRenderer.invoke("get-joined-folders");
-            const index = await window.ipcRenderer.invoke("get-selected-index")
 
             const owned = ownedResult.success ? ownedResult.servers : [];
             const joined = joinedResult.success ? joinedResult.servers : [];
@@ -53,17 +67,12 @@ const useServerStore = create<ServerStore>((set,get) => ({
 
             set({
                 servers,
-                selectedServer: servers[index] ?? servers[0] ?? null,
                 serversErrors: (!ownedResult.success ? ownedResult.error : '') + (!joinedResult.success ? joinedResult.error : ''),
                 loadingServers: false
             });
-
         },
 
-    setSelectedIndex:
-        async function(index:number) {
-            await window.ipcRenderer.invoke("set-selected-index", index)
-        }
+    
 }));
 
 const useUserStore = create<UserStore>((set) => ({
@@ -81,7 +90,7 @@ const useUserStore = create<UserStore>((set) => ({
                 userName: user.name,
                 userEmail: user.email,
                 userPicture: user.picture,
-                loadingUser: false
+                loadingUser: false,
             });
         },
 
@@ -92,6 +101,49 @@ const useUserStore = create<UserStore>((set) => ({
         },
 }))
 
+const useLocalStore = create<LocalVariables>((set) => ({
+    selectedIndex: 0,
+    playitggPath: "",
+    allocatedRAM: {
+        MIN: 2048,
+        MAX: 4096,
+    },
+
+    loadLocalVariables:
+        async function() {
+            const path = await window.ipcRenderer.invoke("get-local-variable", "playitggPath")
+            const index = await window.ipcRenderer.invoke("get-local-variable", "selectedIndex")
+            const allocatedRAM = await window.ipcRenderer.invoke("get-local-variable", "allocatedRAM")
+            
+            set({
+                playitggPath: path,
+                selectedIndex: index,
+                allocatedRAM: allocatedRAM || {MIN: 2048, MAX: 4096},
+            })
+        },
+
+    setSelectedIndex:
+        async function(index:number) {
+            await window.ipcRenderer.invoke("set-local-variable", "selectedIndex" ,index)
+        },
+
+    setAllocatedRAM:
+        async function (min: number, max: number){
+            const allocatedRAM = {
+                MIN: min,
+                MAX: max
+            }
+            set({allocatedRAM: allocatedRAM})
+            await window.ipcRenderer.invoke("set-local-variable", "allocatedRAM", allocatedRAM)
+        },
+    
+    setPlayitggPath: 
+        async function (path: string) {
+            await window.ipcRenderer.invoke("set-local-variable", "playitggPath", path)
+            set({playitggPath:path})
+        }
+}))
 
 
-export {useServerStore, useUserStore};
+
+export {useServerStore, useUserStore, useLocalStore};

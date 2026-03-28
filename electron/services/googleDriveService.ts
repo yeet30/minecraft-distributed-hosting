@@ -636,6 +636,18 @@ export async function renameServerFolder(folderId: string, newName: string) {
 }
 
 export async function startServer(folderId: string){
+	const resFolders = await handleStartupFolders(folderId);
+
+	if(!resFolders.success)
+		return {
+			success: false,
+			error: resFolders.error
+		}
+
+	return { success: true }
+}
+
+async function handleStartupFolders(folderId: string){
 	try {
 		const lockRes = await getServerLock(folderId);
 
@@ -655,6 +667,7 @@ export async function startServer(folderId: string){
 			};
 		}
 
+		
 		await updateLockFile(folderId);
 		const ownLock = await getServerLock(folderId)
 

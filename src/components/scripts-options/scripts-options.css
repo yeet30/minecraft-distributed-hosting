@@ -1,0 +1,129 @@
+.scripts-wrapper {
+
+    .playitgg-div{
+        position: relative;
+        margin-top: 5px;
+        padding: 5px 10px;
+        border-radius: 10px;
+    }
+
+    .playitgg-content {
+        position: relative;
+        z-index: 300;
+    }
+
+    .playitgg-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.3);
+        border-radius: 10px;
+        z-index: 301;
+
+        pointer-events: all;
+        cursor: not-allowed;
+    }
+
+    .playitgg-title{
+        display: flex;
+        justify-content: space-between;
+    }
+
+    #enable-label {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        padding: 5px 15px;
+        right: 10px;
+        background-color: rgb(50, 50, 50);
+        border-radius: 10px;
+        z-index: 302;
+        cursor: pointer;
+    }
+
+    #enable-label.enabled{
+        background-color: rgb(24, 24, 24);
+    }
+
+    .playitgg-title input{
+        margin-top: 6px;
+    }
+
+    h3 {
+        margin: 0;
+    }
+
+    .path-span{
+        display: flex;
+        align-items: end;
+        margin-top: 0.5rem;
+        width: 100%;
+        justify-content: space-between;
+        font-weight: 100;
+        font-size: 0.9rem;
+        color: rgb(150, 150, 150);
+        border-bottom: solid 1px;
+    }
+
+    .path-button {
+        display: flex;
+        align-items: center;
+        font-weight: 400;
+        padding: 0px 8px;
+        margin-bottom: 1px;
+        font-size: 0.9rem;
+        gap: 5px;
+        background-color: rgba(0, 0, 0, 0.2);
+    }
+
+    .second-row {
+        display: flex;
+        margin-top: 5px;
+        flex-direction: row-reverse;
+    }
+
+    .second-row button{
+        height: 2rem;
+    }
+
+    .ram-allocation {
+        display: flex;
+        justify-content: space-between;
+        width: 100%;
+        margin-top: 0.5rem;
+    }
+
+    .ram-div{
+        display: flex;
+        flex-direction: column;
+        width: 40%;
+    }
+
+    .ram-allocation input{
+        width: 100%;
+        margin-top: 0.5rem;
+    }
+
+    .ram-allocation span{
+        display: flex;
+        align-items: end;
+        gap: 0.5rem;
+        font-weight: 100;
+        font-size: 0.9rem;
+        color: rgb(150, 150, 150);
+    }
+
+    .save-span{
+        display: flex;
+        justify-content: center;
+        margin-top: 1rem;
+        width: 100%;
+    }
+
+    .save-button {
+        display: flex;
+        padding: 8px 20px;
+    }
+}

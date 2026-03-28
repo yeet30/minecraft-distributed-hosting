@@ -9,13 +9,15 @@
         margin: 0;
         margin-top: 1rem;
         font-size: 2rem;
+        height: 10dvh;
     }
 
     .starter-section {
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        height: 50dvh;
+        height: 90dvh;
     }
 
     .onOff-button{
@@ -25,6 +27,24 @@
         height: 185px;
         justify-content: center;
         border-radius: 50%;
+    }
+
+    .console-section {
+        height: 100dvh;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .scroller-button{
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 3.4rem;
+        position: fixed;
+        right: 1rem;
+        bottom: 1rem;
     }
 
     .spinner {

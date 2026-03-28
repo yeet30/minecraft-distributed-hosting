@@ -1,11 +1,12 @@
 import './select-server.css'
 import { useEffect, useState } from 'react';
-import { useServerStore, useUserStore } from '../../store/store'
+import { useServerStore, useUserStore, useLocalStore } from '../../store/store'
 import { Play, Loader2 } from "lucide-react";
 import { IServerFolder } from '../../lib/types';
 
 export default function SelectServer(){
 
+    const { setSelectedIndex } = useLocalStore();
     const {userEmail} = useUserStore();
     const {servers, 
         selectedServer, 
@@ -15,7 +16,6 @@ export default function SelectServer(){
         setHostingStatus,
         setLoadingHosting, 
         setServerById, 
-        setSelectedIndex
     } = useServerStore();
 
     const [list, setList] = useState<IServerFolder[]>(servers)
