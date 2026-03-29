@@ -1,21 +1,16 @@
 import { useEffect, useState } from 'react'
 import './playitgg-link.css'
+import { useServerStore } from '../../store/store'
 
 export default function PlayitggLink(){
 
     const [link,setLink] = useState("")
+    const {hostingStatus} = useServerStore();
 
     useEffect(()=>{
-        function handleOutput (_: any, data: string) { 
-            setLink(data) 
-        };
-
-        window.ipcRenderer.on("playitgg-output", handleOutput);
-
-        return () => {
-            window.ipcRenderer.off("playitgg-output", handleOutput);
-        };
-    },[])
+        if(!hostingStatus || !hostingStatus.isHosted) return
+        setLink(hostingStatus.lock.publicIp)
+    }, [hostingStatus])
 
     return(
         <div className='playitgg-wrapper'>

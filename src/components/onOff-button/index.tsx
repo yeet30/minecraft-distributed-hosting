@@ -1,4 +1,4 @@
-import './onOff-buttons.css'
+import './OnOff-buttons.css'
 import { Loader2, Power, Square } from 'lucide-react';
 import { useState } from 'react';
 import { useServerStore, useUserStore, useLocalStore } from '../../store/store'
@@ -31,7 +31,6 @@ export default function OnOffButton(){
             return
         }
         setHostingStatus(result.hostingStatus)
-        alert(`Files are synced up in the directory: ${selectedServer.path}`)
         setLoadingOnOff(false)
     }
 
@@ -45,7 +44,6 @@ export default function OnOffButton(){
             return
         }
         setHostingStatus(null)
-        alert(`Files are downloaded to the directory: ${selectedServer.path}`)
         setLoadingOnOff(false)
     }
 

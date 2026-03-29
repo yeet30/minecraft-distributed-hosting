@@ -26,7 +26,7 @@ export type THostingStatus = {
     lock: {
         hostName: string;
         hostEmail: string;
-        hostedAd: string;
+        publicIp: string;
         startedAt: string;
         expiresAt: string;
     }

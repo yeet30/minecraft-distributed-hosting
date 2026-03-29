@@ -192,12 +192,12 @@ export async function deleteServerFolder(folderId: string) {
 	}
 }
 
-async function listFolderContents(client: OAuth2Client, folderId: string) {
+async function listServerFolders(client: OAuth2Client, folderId: string) {
 	const query = `'${folderId}' in parents and trashed=false`;
 
 	const url = `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType)`;
 
-	const data = await authorizedFetch(client, url, {method: "GET"});
+	const data = await authorizedFetch(client, url);
 
 	const servers = await Promise.all(
 		data.files
@@ -214,7 +214,7 @@ async function listFolderContents(client: OAuth2Client, folderId: string) {
 	return servers;
 }
 
-async function listAllInFolder(client: OAuth2Client, folderId: string) {
+async function listFolderContents(client: OAuth2Client, folderId: string) {
 
 	const query = `'${folderId}' in parents and trashed=false`;
 
@@ -224,7 +224,7 @@ async function listAllInFolder(client: OAuth2Client, folderId: string) {
 		+ `&supportsAllDrives=true`
 		+ `&includeItemsFromAllDrives=true`;
 
-	const data = await authorizedFetch(client, url, {method: "GET"});
+	const data = await authorizedFetch(client, url);
 
 	return data.files || [];
 }
@@ -244,7 +244,7 @@ export async function getRootWithContents() {
 			};
 		}
 
-		const servers = await listFolderContents(client, rootId);
+		const servers = await listServerFolders(client, rootId);
 
 		return {
 			success: true,
@@ -324,8 +324,13 @@ async function downloadFile(client: OAuth2Client, fileId: string) {
 	return Buffer.from(await res.arrayBuffer())
 }
 
-async function downloadFolderRecursive(client: OAuth2Client, folderId: string, localPath: string) {
-	const items = await listAllInFolder(client, folderId);
+async function downloadFolderRecursive(
+	client: OAuth2Client, 
+	folderId: string, 
+	localPath: string,
+	onProgress: (message: string, status?: "error" | "loading" | "done", importance?: "major" | "minor" ) => void
+) {
+	const items = await listFolderContents(client, folderId);
 
 	console.log("Items found:", items.length);
 
@@ -336,22 +341,31 @@ async function downloadFolderRecursive(client: OAuth2Client, folderId: string, l
 			if (!fs.existsSync(itemPath))
 				fs.mkdirSync(itemPath);
 
-			await downloadFolderRecursive(client, item.id, itemPath);
+			await downloadFolderRecursive(client, item.id, itemPath, onProgress);
 		} else {
 			if (shouldDownloadFile(itemPath, item)) {
 				console.log("Downloading changed file:", item.name);
+				onProgress(`Downloading changed file: ${item.name}`, "loading")
 				const data = await downloadFile(client, item.id);
+				onProgress(`Downloaded ${item.name}`, "done")
 				fs.writeFileSync(itemPath, data);
+				if (item.modifiedTime)
+    				fs.utimesSync(itemPath, new Date(item.modifiedTime), new Date(item.modifiedTime));
 			} else {
+				onProgress(`Skipping unchanged file: ${item.name}`, "done")
 				console.log("Skipping unchanged file:", item.name);
 			}
 		}
 	}
 }
 
-export async function syncServer(serverId: string) {
+export async function syncServer(
+	serverId: string,
+	onProgress: (message: string, status?: "error" | "loading" | "done", importance?: "major" | "minor") => void
+) {
 
 	console.log("Syncing folder:", serverId);
+	onProgress(`Downloading the drive folder...`, "loading", "major")
 
 	const client = getOAuthClient();
 	const targetPath = getServerPath(serverId);
@@ -363,16 +377,23 @@ export async function syncServer(serverId: string) {
 		if (!fs.existsSync(targetPath))
 			fs.mkdirSync(targetPath, { recursive: true });
 
-		await downloadFolderRecursive(client, serverId, targetPath);
+		await downloadFolderRecursive(client, serverId, targetPath, onProgress);
+		onProgress(`Drive folder downloaded.`, "done", "major")
 
 		return { success: true };
 
 	} catch (err: any) {
 		return { success: false, error: err.message };
 	}
+
 }
 
-async function uploadFile(client: OAuth2Client, localFilePath: string, parentId: string) {
+async function uploadFile(
+	client: OAuth2Client, 
+	localFilePath: string, 
+	parentId: string,
+	onProgress: (message: string, status?: "error" | "loading" | "done", importance?: "major" | "minor") => void
+) {
 	await refreshIfNeeded(client);
 
 	const accessToken = client.credentials.access_token;
@@ -382,17 +403,18 @@ async function uploadFile(client: OAuth2Client, localFilePath: string, parentId:
 	// Fetch existing file with modifiedTime and size for comparison
 	const query = `'${parentId}' in parents and name='${fileName}' and trashed=false`;
 	const checkUrl = `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}&fields=files(id,modifiedTime,size)`;
-	const checkRes = await authorizedFetch(client, checkUrl, { method: "GET" });
+	const checkRes = await authorizedFetch(client, checkUrl);
 	const existing = checkRes.files?.[0];
 
 	// Skip if file hasn't changed
 	if (!shouldUploadFile(localFilePath, existing)) {
 		console.log("Skipping unchanged file:", fileName);
+		onProgress(`Skipping unchanged file: ${fileName}`, "done", "minor")
 		return;
 	}
 
 	console.log("Uploading changed file:", fileName);
-
+	onProgress(`Uploading changed file: ${fileName}`, "loading", "minor")
 	const metadata = JSON.stringify({ name: fileName, parents: existing ? undefined : [parentId] });
 	const boundary = "boundary_string";
 
@@ -416,13 +438,26 @@ async function uploadFile(client: OAuth2Client, localFilePath: string, parentId:
 		body
 	});
 
-	if (!res.ok)
+	if (!res.ok){
+		onProgress(`Could not upload file: ${fileName}`, "error", "minor")
 		throw new Error(await res.text());
+	}
+		
+	onProgress(`Done uploading: ${fileName}`, "done", "minor")
+	const result = await res.json();
 
-	return await res.json();
+	if (result.modifiedTime)
+    	fs.utimesSync(localFilePath, new Date(result.modifiedTime), new Date(result.modifiedTime));
+	
+	return result;
 }
 
-async function uploadFolderRecursive(client: OAuth2Client, localPath: string, parentId: string) {
+async function uploadFolderRecursive(
+	client: OAuth2Client, 
+	localPath: string, 
+	parentId: string,
+	onProgress: (message: string, status?: "error" | "loading" | "done", importance?: "major" | "minor") => void
+) {
 	const items = fs.readdirSync(localPath);
 
 	for (const item of items) {
@@ -433,32 +468,39 @@ async function uploadFolderRecursive(client: OAuth2Client, localPath: string, pa
 			// Check if folder already exists on Drive
 			const query = `'${parentId}' in parents and name='${item}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
 			const checkUrl = `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}&fields=files(id)`;
-			const checkRes = await authorizedFetch(client, checkUrl, { method: "GET" });
+			const checkRes = await authorizedFetch(client, checkUrl);
 
 			let folderId = checkRes.files?.[0]?.id;
 
 			if (!folderId)
 				folderId = await createFolder(client, item, parentId);
 
-			await uploadFolderRecursive(client, itemPath, folderId);
+			await uploadFolderRecursive(client, itemPath, folderId, onProgress);
 		} else {
-			await uploadFile(client, itemPath, parentId);
+			await uploadFile(client, itemPath, parentId, onProgress);
 		}
 	}
 }
 
-export async function uploadServerFolder(serverId: string) {
+export async function uploadServerFolder(
+	serverId: string,
+	onProgress: (message: string, status?: "error" | "loading" | "done", importance?: "major" | "minor") => void
+) {
 
 	const client = getOAuthClient();
 	const fromPath = getServerPath(serverId)
 
 	console.log("Uploading server folder:", fromPath);
 
-	if (!fromPath)
+	if (!fromPath){
+		onProgress("Local server folder not found.", "error", "major")
 		return { success: false, error: "Local server folder not found." };
+	}
 
+	onProgress("Uploading the files to the drive.", "loading", "major")
 	try {
-		await uploadFolderRecursive(client, fromPath, serverId);
+		await uploadFolderRecursive(client, fromPath, serverId, onProgress);
+		onProgress("Done uploading the files", "done", "major")
 		return { success: true };
 	} catch (err: any) {
 		return { success: false, error: err.message };
@@ -471,6 +513,9 @@ function shouldDownloadFile(localPath: string, driveFile: any): boolean {
 		return true;
 
 	const localStat = fs.statSync(localPath);
+	
+	// no size info, always download
+	if (!driveFile.size) return true;
 
 	//If size differs then download
 	if (localStat.size !== parseInt(driveFile.size))
@@ -639,42 +684,62 @@ export async function renameServerFolder(folderId: string, newName: string) {
     return { success: true };
 }
 
-export async function startServer(options: IStartupOptions) {
+export async function startServer(
+	options: IStartupOptions, 
+	onProgress: (message: string, status?: "error" | "loading" | "done", importance?: "major" | "minor") => void
+) {
     const { folderId, playitggPath} = options;
 
     // 1. Check if already hosted
-    const lockRes = await getServerLock(folderId);
-    if (lockRes.isHosted)
-        return { success: false, error: "This server is already being hosted.", lock: lockRes.lock };
+	onProgress("Checking if server is already hosted...", "loading", "major");
+    let lockRes = await getServerLock(folderId);
+    if (lockRes.isHosted){
+		onProgress("The server is already being hosted.", "error");
+		return { success: false, error: "This server is already being hosted.", lock: lockRes.lock };
+	}
+	onProgress("The server is not being hosted", "done", "major");
+
 
     // 2. Reserve the lock immediately so no one else can start
+	onProgress("Reserving server slot...", "loading", "major");
 	await updateLockFile(folderId, true)
+	onProgress("Reserved...", "done", "major");
 
     // 3. Start playit.gg and file sync IN PARALLEL
     const playitggProcess = playitggPath ? launchPlayitgg(playitggPath) : null;
+	playitggProcess && onProgress("Booting up the playit.gg client...", "loading", "major");
     if (playitggPath && !playitggProcess) {
         await deleteLockFile(folderId); // release the lock
+		onProgress("Could not start playit.gg ", "error", "major");
         return { success: false, error: "playit.gg failed to start." };
     }
+	playitggProcess && onProgress("Playit.gg client launched.", "done", "major");
 
     // Run file sync and wait for playit link at the same time
     const [syncRes, ip] = await Promise.all([
-        syncServer(folderId),
+        syncServer(folderId, onProgress),
         playitggProcess ? waitForPlayitLink(playitggProcess) : Promise.resolve(null)
     ]);
-
+	
 	publicIp = ip ?? "";
 
     if (!syncRes.success) {
+		onProgress("Could not download the server files.", "error", "major")
+		onProgress("Deleting the lock.", "loading", "minor")
         await deleteLockFile(folderId);
         killPlayitgg();
         return { success: false, error: syncRes.error };
     }
+	onProgress("Finished downloading server files.", "done", "major")
+	onProgress("Received the ip from playitgg client.", "done", "minor")
 
     // 4. Update lock with public IP and running status
+	onProgress("Uploading the lock to the drive.", "loading", "major")
     await updateLockFile(folderId);
+	lockRes = await getServerLock(folderId)
+	onProgress("Server successfully started.", "done", "major")
 
-    return { success: true, publicIp, playitggProcess };
+    return { success: true, publicIp, playitggProcess, lockRes };
 }
 
 async function uploadLockFile(
@@ -805,7 +870,10 @@ export async function getServerLock(folderId: string) {
 	}
 }
 
-export async function stopServer(folderId: string){
+export async function stopServer(
+	folderId: string,
+	onProgress: (message: string, status?: "error" | "loading" | "done", importance?: "major" | "minor") => void
+){
 	try {
 		const lockRes = await getServerLock(folderId)
 
@@ -814,8 +882,9 @@ export async function stopServer(folderId: string){
 				success : false,
 				error: "This server is not being hosted."
 			}
-
-		const uploadRes = await uploadServerFolder(folderId)
+		
+		onProgress("Uploading the server files to the drive...", "loading", "major")
+		const uploadRes = await uploadServerFolder(folderId, onProgress)
 
 		if(!uploadRes.success)
 			return {

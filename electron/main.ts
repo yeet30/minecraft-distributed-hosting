@@ -98,25 +98,30 @@ app.on('will-quit', async (event) => {
         event.preventDefault();
         clearInterval(heartbeatInterval!);
         heartbeatInterval = null;
-        await stopServer(currentHostingServerId);
+        await stopServer(currentHostingServerId, sendProgress);
         currentHostingServerId = null;
         app.quit();
     }
 });
 
+function sendProgress(message: string, status: 'loading' | 'done' | 'error' = 'loading', importance: 'major' | 'minor' = 'minor') {
+    win?.webContents.send("startup-progress", { message, status, importance });
+}
+
 ipcMain.handle("start-server", async (_, options: IStartupOptions) => {
-    const result = await startServer(options);
+    const result = await startServer(options, sendProgress);
 
     if (!result.success) return result;
 
     // Launch the actual MC server process
     const serverProcess = launchServer(options.serverPath, options.RAMoptions);
     if (!serverProcess) {
-        await stopServer(options.folderId);
+        await stopServer(options.folderId, sendProgress);
         return { success: false, error: "server.jar not found." };
     }
 
     // Stream server output to renderer
+	win?.webContents.send("server-started");
     serverProcess.stdout?.on("data", (data) => {
         win?.webContents.send("server-output", data.toString());
     });
@@ -144,20 +149,26 @@ ipcMain.handle("start-server", async (_, options: IStartupOptions) => {
         await updateLockFile(options.folderId);
     }, 20000);
 
-    return { success: true, publicIp: result.publicIp };
+    return { success: true, publicIp: result.publicIp, hostingStatus: result.lockRes };
 });
 
 ipcMain.handle("stop-server", async (_, serverId) => {
+
 	const playitggProcess = getPlayitggProcess()
 
-	if(playitggProcess)
+	if(playitggProcess){
+		sendProgress("Closing down the playitgg client.", "loading", "major")
 		killPlayitgg()
+		sendProgress("Finished closing the playitgg client.", "done", "major")
+	}
+	sendProgress("Closing down the server console.", "loading", "major")
 	killServer()
+	sendProgress("Finished closing down the server console.", "done", "major")
 
     clearInterval(heartbeatInterval!);
     heartbeatInterval = null;
     currentHostingServerId = null;
-    return await stopServer(serverId);
+    return await stopServer(serverId, sendProgress);
 });
 
 ipcMain.handle("send-server-command", (_, command: string) => {
@@ -188,7 +199,7 @@ ipcMain.handle("google-logout", async () => {
 	if (currentHostingServerId) {
         clearInterval(heartbeatInterval!);
         heartbeatInterval = null;
-        await stopServer(currentHostingServerId);
+        await stopServer(currentHostingServerId, sendProgress);
         currentHostingServerId = null;
     }
     return await logoutGoogle();
@@ -231,11 +242,11 @@ ipcMain.handle("get-server-path", (_, serverId) => {
 })
 
 ipcMain.handle("sync-server", async (_, serverId) => {
-	return await syncServer(serverId)
+	return await syncServer(serverId, sendProgress)
 })
 
 ipcMain.handle("upload-server-folder", async (_, serverId) => {
-	return await uploadServerFolder(serverId);
+	return await uploadServerFolder(serverId, sendProgress);
 })
 
 ipcMain.handle("drive-invite-user", async (_, serverId, email, message?) => {

@@ -6,27 +6,47 @@ import { useState, useEffect } from 'react';
 import PermissionInformation from '../permission-information';
 import ServerConsole from '../server-console';
 import PlayitggLink from '../playitgg-link';
-import OnOffButton from '../onOff-button';
+import OnOffButton from '../OnOff-button';
+import StartupProgress from '../startup-progress';
 
 export default function GreetingSection() {
 
     const { userName, loadingUser, driveScopeAllowed } = useUserStore();
-    const { hostingStatus} = useServerStore();
-
+    const { hostingStatus } = useServerStore();
+    const [serverRunning, setServerRunning] = useState(false);
     const [notAtTop, setNotAtTop] = useState(false);
+    const [showProgress, setShowProgress] = useState(true)
 
     useEffect(() => {
-        const handleScroll = () => {
-        setNotAtTop(window.scrollY > 0);
+        function handleScroll() {
+            setNotAtTop(window.scrollY > 0);
         };
-
         window.addEventListener("scroll", handleScroll);
 
-        // Initial check
         handleScroll();
-
         return () => window.removeEventListener("scroll", handleScroll);
     }, []);
+
+    useEffect(()=>{
+        window.ipcRenderer.on("server-started", () => {
+            setServerRunning(true);
+            console.log("true")
+        });
+
+        window.ipcRenderer.on("server-stopped", () => {
+            setServerRunning(false);
+            console.log("False")
+        });
+
+        window.ipcRenderer.on("server-output", (_, line)=> {
+            if(/Done\s*\(/.test(line))
+                setShowProgress(false)
+        })
+
+        window.ipcRenderer.on("server-stopped", () => {
+            setShowProgress(true);
+        });
+    }, [])
 
     if (loadingUser)
         return <h2 className="greeting-title">Loading user information...</h2>
@@ -43,15 +63,14 @@ export default function GreetingSection() {
                 <h2 className="greeting-title">Welcome, {userName}!</h2>
                 <div className='starter-section'>
                 <div><OnOffButton/></div>
+                {showProgress && <div><StartupProgress/></div>}
                 <div><SelectServer/></div>
-                <div className='playitgg-link'>
-                    <PlayitggLink/>
-                </div>
+                <div><PlayitggLink/></div>
             </div>
             </div>
-            {hostingStatus && hostingStatus?.isHosted
+            {hostingStatus && hostingStatus?.isHosted && serverRunning &&
+                <div className='console-section'><ServerConsole/></div>
             }
-            <div className='console-section'><ServerConsole/></div>
             {notAtTop && 
                 <button 
                 className='scroller-button'
