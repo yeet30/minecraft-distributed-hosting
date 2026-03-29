@@ -4,10 +4,14 @@ import fs from "fs";
 import { OAuth2Client } from "google-auth-library";
 import { addJoinedServer, getJoinedServerIds, getServerPath } from "./localServerStore";
 import { getUserInfo } from "./googleAuthService";
+import { IStartupOptions } from "../../src/lib/types";
+import { launchPlayitgg, waitForPlayitLink, killPlayitgg } from "./childrenProcesses";
 
 const DRIVE_BASE_URL = "https://www.googleapis.com/drive/v3/files";
 const ROOT_FOLDER_NAME = "Minecraft Shared Servers";
 const MAX_SERVERS = 3;
+
+let publicIp = ""
 
 function getTokenPath() {
 	return path.join(app.getPath("userData"), "token.json");
@@ -635,56 +639,42 @@ export async function renameServerFolder(folderId: string, newName: string) {
     return { success: true };
 }
 
-export async function startServer(folderId: string){
-	const resFolders = await handleStartupFolders(folderId);
+export async function startServer(options: IStartupOptions) {
+    const { folderId, playitggPath} = options;
 
-	if(!resFolders.success)
-		return {
-			success: false,
-			error: resFolders.error
-		}
+    // 1. Check if already hosted
+    const lockRes = await getServerLock(folderId);
+    if (lockRes.isHosted)
+        return { success: false, error: "This server is already being hosted.", lock: lockRes.lock };
 
-	return { success: true }
-}
+    // 2. Reserve the lock immediately so no one else can start
+	await updateLockFile(folderId, true)
 
-async function handleStartupFolders(folderId: string){
-	try {
-		const lockRes = await getServerLock(folderId);
+    // 3. Start playit.gg and file sync IN PARALLEL
+    const playitggProcess = playitggPath ? launchPlayitgg(playitggPath) : null;
+    if (playitggPath && !playitggProcess) {
+        await deleteLockFile(folderId); // release the lock
+        return { success: false, error: "playit.gg failed to start." };
+    }
 
-		if (lockRes.isHosted) 
-			return {
-				success: false,
-				error: "This server is already being hosted.",
-				lock: lockRes.lock
-			};
+    // Run file sync and wait for playit link at the same time
+    const [syncRes, ip] = await Promise.all([
+        syncServer(folderId),
+        playitggProcess ? waitForPlayitLink(playitggProcess) : Promise.resolve(null)
+    ]);
 
-		const syncRes = await syncServer(folderId);
+	publicIp = ip ?? "";
 
-		if (!syncRes.success) {
-			return {
-				success: false,
-				error: syncRes.error
-			};
-		}
+    if (!syncRes.success) {
+        await deleteLockFile(folderId);
+        killPlayitgg();
+        return { success: false, error: syncRes.error };
+    }
 
-		
-		await updateLockFile(folderId);
-		const ownLock = await getServerLock(folderId)
+    // 4. Update lock with public IP and running status
+    await updateLockFile(folderId);
 
-    	return { 
-			success: true,
-			hostingStatus: {
-				isHosted: true,
-				lock: ownLock.lock
-			}
-		};
-
-	} catch (err) {
-		return {
-			success: false,
-			error: err instanceof Error ? err.message : String(err)
-		};
-	}
+    return { success: true, publicIp, playitggProcess };
 }
 
 async function uploadLockFile(
@@ -734,7 +724,7 @@ async function uploadLockFile(
 	return await res.json()
 }
 
-export async function updateLockFile(folderId: string){
+export async function updateLockFile(folderId: string, startup?: boolean){
 	const client = getOAuthClient();
 
 	const query = `'${folderId}' in parents and name='lock.json' and trashed=false`;
@@ -745,12 +735,25 @@ export async function updateLockFile(folderId: string){
 
 	const user = await getUserInfo();
 
-	const content = {
+	let content = {
 		hostName: user.name,
 		hostEmail: user.email,
 		startedAt: new Date(Date.now()).toISOString(),
-		expiresAt: new Date(Date.now() + 30000).toISOString()
+		expiresAt: new Date(Date.now() + 30000).toISOString(),
+		publicIp: publicIp ?? "",
+		status: "running"
 	}
+
+	if(startup)
+		content = {
+			hostName: user.name,
+			hostEmail: user.email,
+			startedAt: new Date().toISOString(),
+			expiresAt: new Date(Date.now() + 60000).toISOString(), // 60s grace period for startup
+			publicIp: "", // not known yet
+			status: "starting"
+		};
+
 
 	await uploadLockFile(client, content, folderId, existingLockId)
 }

@@ -3,7 +3,6 @@ import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { LocalVariables } from '../src/store/store'
-import { exec } from "child_process";
 import { loginWithGoogle, getUserInfo, isAlreadyLoggedIn, logoutGoogle, isRequestAllowed, requestDriveScope } from './services/googleAuthService'
 import {
 	createServerFolder,
@@ -22,8 +21,9 @@ import {
 	stopServer,
 } from './services/googleDriveService'
 
-import { launchServerConsole, launchPlayitggConsole, setPlayitggProcess, setServerProcess, getServerProcess, getPlayitggProcess} from './services/childrenProcesses'
+import { launchServer, getServerProcess, getPlayitggProcess, killPlayitgg, killServer } from './services/childrenProcesses'
 import { getServerPath, setServerPath, getLocalVariable, setLocalVariable } from './services/localServerStore'
+import { IStartupOptions } from '../src/lib/types'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -104,45 +104,60 @@ app.on('will-quit', async (event) => {
     }
 });
 
+ipcMain.handle("start-server", async (_, options: IStartupOptions) => {
+    const result = await startServer(options);
 
+    if (!result.success) return result;
 
-ipcMain.handle("launch-server-consoles", async (_, serverPath: string, playitggPath: string) => {
-	const serverProcess = await launchServerConsole(serverPath)
-	const playitggProcess = await launchPlayitggConsole(playitggPath)
+    // Launch the actual MC server process
+    const serverProcess = launchServer(options.serverPath, options.RAMoptions);
+    if (!serverProcess) {
+        await stopServer(options.folderId);
+        return { success: false, error: "server.jar not found." };
+    }
 
-	if((!serverProcess) || (!playitggProcess))
-		return {
-			success: false,
-		}
-
+    // Stream server output to renderer
     serverProcess.stdout?.on("data", (data) => {
-		win?.webContents.send("server-output", data.toString());
-	});
-
-	serverProcess?.stderr?.on("data", (data) => {
-		win?.webContents.send("server-output", data.toString());
-	});
-
-	serverProcess?.on("close", (code) => {
-		win?.webContents.send("server-output", `\n[System] Server process exited with code ${code}\n`);
-		win?.webContents.send("server-stopped");
-		setServerProcess(null)
-	});
-
-	playitggProcess.stdout?.on("data", (data) => {
-		const match = data
-		.toString("utf-8")
-		.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, "")
-		.match(/([a-zA-Z0-9.-]+\.joinmc\.link)\s*=>/);
-
-		if (match) {
-			const link = match[1];
-			console.log(link);
-			win?.webContents.send("playitgg-output", link);
-		}
+        win?.webContents.send("server-output", data.toString());
     });
-	
-	return { success: true };
+    serverProcess.stderr?.on("data", (data) => {
+        win?.webContents.send("server-output", data.toString());
+    });
+    serverProcess.on("close", (code) => {
+        win?.webContents.send("server-output", `\n[System] Server exited with code ${code}\n`);
+        win?.webContents.send("server-stopped");
+    });
+
+    // Stream playit.gg link to renderer if enabled
+    if (result.playitggProcess) {
+        result.playitggProcess.stdout?.on("data", (data) => {
+            const text = data.toString("utf-8").replace(/\x1B\[[0-9;]*[a-zA-Z]/g, "");
+            const match = text.match(/([a-zA-Z0-9.-]+\.joinmc\.link)\s*=>/);
+            if (match) 
+				win?.webContents.send("playitgg-link", match[1]);
+        });
+    }
+
+    // Start heartbeat
+    currentHostingServerId = options.folderId;
+    heartbeatInterval = setInterval(async () => {
+        await updateLockFile(options.folderId);
+    }, 20000);
+
+    return { success: true, publicIp: result.publicIp };
+});
+
+ipcMain.handle("stop-server", async (_, serverId) => {
+	const playitggProcess = getPlayitggProcess()
+
+	if(playitggProcess)
+		killPlayitgg()
+	killServer()
+
+    clearInterval(heartbeatInterval!);
+    heartbeatInterval = null;
+    currentHostingServerId = null;
+    return await stopServer(serverId);
 });
 
 ipcMain.handle("send-server-command", (_, command: string) => {
@@ -152,21 +167,6 @@ ipcMain.handle("send-server-command", (_, command: string) => {
 
     serverProcess.stdin?.write(command + "\n");
 
-    return { success: true };
-});
-
-ipcMain.handle("stop-server-consoles", async () => {
-	const serverProcess = getServerProcess();
-	const playitggProcess = getPlayitggProcess();
-
-    if ((!serverProcess) || (!playitggProcess))
-        return { success: false, error: "Server is not running." };
-
-    serverProcess.stdin?.write("stop\n");
-	const pid = playitggProcess.pid;
-    exec(`taskkill /PID ${pid} /T /F`);
-    setPlayitggProcess(null)
-	
     return { success: true };
 });
 
@@ -274,19 +274,6 @@ ipcMain.handle("get-server-lock", async (_, folderId) => {
 	return await getServerLock(folderId);
 });
 
-ipcMain.handle("start-server", async (_, folderId) => {
-	const result = await startServer(folderId);
-    if (result.success) {
-        currentHostingServerId = folderId;
-        heartbeatInterval = setInterval(async () => {
-            await updateLockFile(folderId);
-        }, 20000);
-    }
-	console.log("Current Hosted Server Id: ", currentHostingServerId)
-	console.log(heartbeatInterval && "Heartbeat exists" )
-	return result;
-});
-
 ipcMain.handle("get-local-variable", async (_, variable: keyof LocalVariables) => {
     return getLocalVariable(variable);
 });
@@ -294,13 +281,6 @@ ipcMain.handle("get-local-variable", async (_, variable: keyof LocalVariables) =
 ipcMain.handle("set-local-variable", async (_, variable: keyof LocalVariables, value: LocalVariables[typeof variable]) => {
     setLocalVariable(variable, value);
     return true;
-});
-
-ipcMain.handle("stop-server", async (_, serverId) => {
-    clearInterval(heartbeatInterval!);
-    heartbeatInterval = null;
-    currentHostingServerId = null;
-    return await stopServer(serverId);
 });
 
 app.whenReady().then(createWindow)

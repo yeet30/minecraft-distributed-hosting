@@ -31,3 +31,13 @@ export type THostingStatus = {
         expiresAt: string;
     }
 } | null;
+
+export interface IStartupOptions {
+    folderId: string;
+    serverPath: string,
+    playitggPath: string;
+    RAMoptions: {
+        MIN: number;
+        MAX: number;
+    };
+}

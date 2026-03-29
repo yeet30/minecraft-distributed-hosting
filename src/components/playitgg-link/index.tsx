@@ -6,9 +6,8 @@ export default function PlayitggLink(){
     const [link,setLink] = useState("")
 
     useEffect(()=>{
-        function handleOutput (_: any, data: string) {
-            const newLine = data;
-            setLink(newLine);
+        function handleOutput (_: any, data: string) { 
+            setLink(data) 
         };
 
         window.ipcRenderer.on("playitgg-output", handleOutput);

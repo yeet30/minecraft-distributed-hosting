@@ -4,29 +4,25 @@
     flex-direction: column;
     align-items: center;
 
+    .first-page{
+        height: 100dvh;
+    }
+
     .greeting-title{
         text-align: center;
         margin: 0;
         margin-top: 1rem;
         font-size: 2rem;
-        height: 10dvh;
+        height: 10%;
     }
 
     .starter-section {
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center;
-        height: 90dvh;
-    }
-
-    .onOff-button{
-        display: flex;
-        align-items: center;
-        width: 196px;
-        height: 185px;
-        justify-content: center;
-        border-radius: 50%;
+        justify-content: space-between;
+        padding: 2rem 0rem;
+        gap: 2rem;
     }
 
     .console-section {
