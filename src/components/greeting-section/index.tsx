@@ -30,12 +30,18 @@ export default function GreetingSection() {
     useEffect(()=>{
         window.ipcRenderer.on("server-started", () => {
             setServerRunning(true);
-            console.log("true")
         });
 
         window.ipcRenderer.on("server-stopped", () => {
             setServerRunning(false);
-            console.log("False")
+        });
+
+        window.ipcRenderer.on("show-progress", () => {
+            setShowProgress(true)
+        });
+
+        window.ipcRenderer.on("hide-progress", () => {
+            setShowProgress(false)
         });
 
         window.ipcRenderer.on("server-output", (_, line)=> {
@@ -43,9 +49,6 @@ export default function GreetingSection() {
                 setShowProgress(false)
         })
 
-        window.ipcRenderer.on("server-stopped", () => {
-            setShowProgress(true);
-        });
     }, [])
 
     if (loadingUser)

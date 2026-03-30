@@ -109,6 +109,8 @@ function sendProgress(message: string, status: 'loading' | 'done' | 'error' = 'l
 }
 
 ipcMain.handle("start-server", async (_, options: IStartupOptions) => {
+
+	win?.webContents.send("show-progress");
     const result = await startServer(options, sendProgress);
 
     if (!result.success) return result;
@@ -149,11 +151,14 @@ ipcMain.handle("start-server", async (_, options: IStartupOptions) => {
         await updateLockFile(options.folderId);
     }, 20000);
 
+	win?.webContents.send("hide-progress");
+
     return { success: true, publicIp: result.publicIp, hostingStatus: result.lockRes };
 });
 
 ipcMain.handle("stop-server", async (_, serverId) => {
 
+	win?.webContents.send("show-progress");
 	const playitggProcess = getPlayitggProcess()
 
 	if(playitggProcess){
@@ -168,7 +173,9 @@ ipcMain.handle("stop-server", async (_, serverId) => {
     clearInterval(heartbeatInterval!);
     heartbeatInterval = null;
     currentHostingServerId = null;
-    return await stopServer(serverId, sendProgress);
+	const stopRes = await stopServer(serverId, sendProgress);
+	win?.webContents.send("hide-progress");
+    return stopRes
 });
 
 ipcMain.handle("send-server-command", (_, command: string) => {
@@ -196,12 +203,24 @@ ipcMain.handle("google-is-logged-in", () => {
 
 ipcMain.handle("google-logout", async () => {
 	console.log(currentHostingServerId)
+	/*
+	const playitggProcess = getPlayitggProcess()
 	if (currentHostingServerId) {
+		if(playitggProcess){
+			sendProgress("Closing down the playitgg client.", "loading", "major")
+			killPlayitgg()
+			sendProgress("Finished closing the playitgg client.", "done", "major")
+		}
+		sendProgress("Closing down the server console.", "loading", "major")
+		killServer()
+		sendProgress("Finished closing down the server console.", "done", "major")
         clearInterval(heartbeatInterval!);
         heartbeatInterval = null;
         await stopServer(currentHostingServerId, sendProgress);
         currentHostingServerId = null;
     }
+	*/
+		
     return await logoutGoogle();
 })
 

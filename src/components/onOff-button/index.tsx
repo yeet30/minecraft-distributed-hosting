@@ -7,8 +7,7 @@ import { IStartupOptions } from '../../lib/types';
 export default function OnOffButton(){
 
     const { userEmail } = useUserStore();
-    const {loadingServers, setHostingStatus } = useServerStore();
-    const { selectedServer, hostingStatus} = useServerStore();
+    const {loadingServers, selectedServer, hostingStatus, setHostingStatus} = useServerStore();
     const { playitggPath, allocatedRAM } = useLocalStore();
     const [loadingOnOff, setLoadingOnOff] = useState(false)
 
@@ -54,14 +53,14 @@ export default function OnOffButton(){
                     <button 
                     className='onOff-button' 
                     onClick={handleStop} 
-                    disabled={hostingStatus.lock.hostEmail !== userEmail}>
+                    disabled={hostingStatus.lock.hostEmail !== userEmail || loadingServers}>
                         {loadingOnOff  
                             ? <Loader2 size={128} className='spinner'/>
                             : <Square size={120} fill="currentColor"/>
                         }
                     </button>
                 :
-                    <button className='onOff-button' onClick={handleStart} disabled={loadingOnOff}>
+                    <button className='onOff-button' onClick={handleStart} disabled={loadingOnOff || loadingServers}>
                         {loadingOnOff 
                             ? <Loader2 size={128} className='spinner'/>
                             : <Power size={128}/>

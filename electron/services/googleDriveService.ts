@@ -500,7 +500,6 @@ export async function uploadServerFolder(
 	onProgress("Uploading the files to the drive.", "loading", "major")
 	try {
 		await uploadFolderRecursive(client, fromPath, serverId, onProgress);
-		onProgress("Done uploading the files", "done", "major")
 		return { success: true };
 	} catch (err: any) {
 		return { success: false, error: err.message };
@@ -842,6 +841,8 @@ export async function getServerLock(folderId: string) {
 		{} // no Content-Type
 	);
 
+	console.log(lockData)
+
 	const now = new Date();
 	const expiresAt = new Date(lockData.expiresAt);
 
@@ -885,6 +886,7 @@ export async function stopServer(
 		
 		onProgress("Uploading the server files to the drive...", "loading", "major")
 		const uploadRes = await uploadServerFolder(folderId, onProgress)
+		onProgress("Done uploading the files", "done", "major")
 
 		if(!uploadRes.success)
 			return {
