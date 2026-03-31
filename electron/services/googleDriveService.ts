@@ -4,7 +4,7 @@ import fs from "fs";
 import { OAuth2Client } from "google-auth-library";
 import { addJoinedServer, getJoinedServerIds, getServerPath } from "./localServerStore";
 import { getUserInfo } from "./googleAuthService";
-import { IStartupOptions } from "../../src/lib/types";
+import { IStartupOptions, ILockStatus } from "../../src/lib/types";
 import { launchPlayitgg, waitForPlayitLink, killPlayitgg } from "./childrenProcesses";
 
 const DRIVE_BASE_URL = "https://www.googleapis.com/drive/v3/files";
@@ -67,6 +67,7 @@ async function authorizedFetch(
 		...options,
 		headers: {
 			Authorization: `Bearer ${accessToken}`,
+			...(options.body ? { "Content-Type": "application/json" } : {}),
 			...headers
 		}
 	});
@@ -306,16 +307,11 @@ export async function getJoinedServers() {
 async function downloadFile(client: OAuth2Client, fileId: string) {
 
 	await refreshIfNeeded(client);
-
 	const accessToken = client.credentials.access_token;
 
 	const res = await fetch(
 		`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
-		{
-			headers: {
-				Authorization: `Bearer ${accessToken}`
-			}
-		}
+		{ headers: { Authorization: `Bearer ${accessToken}` } }
 	)
 
 	if (!res.ok)
@@ -334,7 +330,11 @@ async function downloadFolderRecursive(
 
 	console.log("Items found:", items.length);
 
+	const SKIP_FILES = ["lock.json"];
+
 	for (const item of items) {
+		if (SKIP_FILES.includes(item.name)) continue;
+
 		const itemPath = path.join(localPath, item.name);
 
 		if (item.mimeType === "application/vnd.google-apps.folder") {
@@ -507,25 +507,31 @@ export async function uploadServerFolder(
 }
 
 function shouldDownloadFile(localPath: string, driveFile: any): boolean {
-	//If file doesn't exist locally then always download
-	if (!fs.existsSync(localPath))
-		return true;
+    if (!fs.existsSync(localPath)) {
+        console.log(`DOWNLOAD: ${localPath} - file doesn't exist locally`);
+        return true;
+    }
 
-	const localStat = fs.statSync(localPath);
-	
-	// no size info, always download
-	if (!driveFile.size) return true;
+    const localStat = fs.statSync(localPath);
+    
+    if (!driveFile.size) {
+        console.log(`DOWNLOAD: ${path.basename(localPath)} - no size info from Drive`);
+        return true;
+    }
 
-	//If size differs then download
-	if (localStat.size !== parseInt(driveFile.size))
-		return true;
+    if (localStat.size !== parseInt(driveFile.size)) {
+        console.log(`DOWNLOAD: ${path.basename(localPath)} - size differs: local=${localStat.size} drive=${driveFile.size}`);
+        return true;
+    }
 
-	//If drive version is newer than local then download
-	const driveModified = new Date(driveFile.modifiedTime).getTime();
-	if (driveModified > localStat.mtimeMs)
-		return true;
+    const driveModified = new Date(driveFile.modifiedTime).getTime();
+    if (driveModified > localStat.mtimeMs) {
+        console.log(`DOWNLOAD: ${path.basename(localPath)} - drive newer: drive=${new Date(driveFile.modifiedTime).toISOString()} local=${new Date(localStat.mtimeMs).toISOString()}`);
+        return true;
+    }
 
-	return false;
+    console.log(`SKIP: ${path.basename(localPath)}`);
+    return false;
 }
 
 function shouldUploadFile(localFilePath: string, driveFile: any): boolean {
@@ -691,24 +697,23 @@ export async function startServer(
 
     // 1. Check if already hosted
 	onProgress("Checking if server is already hosted...", "loading", "major");
-    let lockRes = await getServerLock(folderId);
-    if (lockRes.isHosted){
-		onProgress("The server is already being hosted.", "error");
-		return { success: false, error: "This server is already being hosted.", lock: lockRes.lock };
+    let lockRes = await getServerLock(folderId)
+    if (lockRes.lockData.status === "online"){
+		onProgress("The server is already being hosted.", "error", "major");
+		return { success: false, error: "This server is already being hosted.", lock: lockRes.lockData};
 	}
 	onProgress("The server is not being hosted", "done", "major");
 
-
     // 2. Reserve the lock immediately so no one else can start
 	onProgress("Reserving server slot...", "loading", "major");
-	await updateLockFile(folderId, true)
+	await updateLockFile(folderId, "starting")
 	onProgress("Reserved...", "done", "major");
 
     // 3. Start playit.gg and file sync IN PARALLEL
     const playitggProcess = playitggPath ? launchPlayitgg(playitggPath) : null;
 	playitggProcess && onProgress("Booting up the playit.gg client...", "loading", "major");
     if (playitggPath && !playitggProcess) {
-        await deleteLockFile(folderId); // release the lock
+        await updateLockFile(folderId, "offline"); // release the lock
 		onProgress("Could not start playit.gg ", "error", "major");
         return { success: false, error: "playit.gg failed to start." };
     }
@@ -725,7 +730,7 @@ export async function startServer(
     if (!syncRes.success) {
 		onProgress("Could not download the server files.", "error", "major")
 		onProgress("Deleting the lock.", "loading", "minor")
-        await deleteLockFile(folderId);
+        await updateLockFile(folderId, "offline");
         killPlayitgg();
         return { success: false, error: syncRes.error };
     }
@@ -734,11 +739,15 @@ export async function startServer(
 
     // 4. Update lock with public IP and running status
 	onProgress("Uploading the lock to the drive.", "loading", "major")
-    await updateLockFile(folderId);
+    await updateLockFile(folderId, "online");
 	lockRes = await getServerLock(folderId)
 	onProgress("Server successfully started.", "done", "major")
 
-    return { success: true, publicIp, playitggProcess, lockRes };
+    return { 
+		success: true, 
+		playitggProcess: playitggProcess, 
+		lockData: lockRes.lockData 
+	};
 }
 
 async function uploadLockFile(
@@ -788,7 +797,7 @@ async function uploadLockFile(
 	return await res.json()
 }
 
-export async function updateLockFile(folderId: string, startup?: boolean){
+export async function updateLockFile(folderId: string, status: "starting" | "online" | "stopping" | "offline" ){
 	const client = getOAuthClient();
 
 	const query = `'${folderId}' in parents and name='lock.json' and trashed=false`;
@@ -805,69 +814,56 @@ export async function updateLockFile(folderId: string, startup?: boolean){
 		startedAt: new Date(Date.now()).toISOString(),
 		expiresAt: new Date(Date.now() + 30000).toISOString(),
 		publicIp: publicIp ?? "",
-		status: "running"
+		status: status
 	}
 
-	if(startup)
+	if(status==="starting")
 		content = {
-			hostName: user.name,
-			hostEmail: user.email,
-			startedAt: new Date().toISOString(),
+			...content,
 			expiresAt: new Date(Date.now() + 60000).toISOString(), // 60s grace period for startup
-			publicIp: "", // not known yet
-			status: "starting"
 		};
-
 
 	await uploadLockFile(client, content, folderId, existingLockId)
 }
 
-export async function getServerLock(folderId: string) {
+export async function getServerLock(folderId: string): Promise<{ lockData: ILockStatus; lockFileId: string }>{
 	const client = getOAuthClient();
 
 	const query = `'${folderId}' in parents and name='lock.json' and trashed=false`;
     const url = `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}&fields=files(id)`;
-
     const data = await authorizedFetch(client, url);
 
-    if (!data.files || data.files.length === 0) 
-		return { isHosted: false } 
+    if (!data.files || data.files.length === 0) {
+		await updateLockFile(folderId, "offline");
+		const newData = await authorizedFetch(client, url);
+		const lockFileId = newData.files[0].id;
+		const lockData = await authorizedFetch(
+			client,
+			`${DRIVE_BASE_URL}/${lockFileId}?alt=media`,
+			{ method: "GET" },
+			{}
+		);
+		return JSON.parse(JSON.stringify({ lockData, lockFileId }));
+	}
 
 	const lockFileId = data.files[0].id
-	const lockData = await authorizedFetch(
+	let lockData = await authorizedFetch(
 		client,
 		`${DRIVE_BASE_URL}/${lockFileId}?alt=media`,
 		{ method: "GET" },
 		{} // no Content-Type
 	);
 
-	console.log(lockData)
-
 	const now = new Date();
 	const expiresAt = new Date(lockData.expiresAt);
 
-	if (now > expiresAt) {
-		try {
-			await deleteLockFile(folderId)
-		} catch (error:any) {
-			let parsed;
-			try {
-				parsed = JSON.parse(error.message);
-			} catch {
-				console.error("Non-JSON error:", error.message);
-			}
-
-			if (parsed.error.code !== 403) {
-				console.error(parsed.error.message);
-			}
-		}		
-		return { isHosted: false };
+	if (now > expiresAt){
+		await updateLockFile(folderId, "offline");
 	}
-        
 
-	return {
-		isHosted: true,
-		lock: lockData
+	return  { 
+		lockData: lockData, 
+		lockFileId: lockFileId
 	}
 }
 
@@ -875,15 +871,19 @@ export async function stopServer(
 	folderId: string,
 	onProgress: (message: string, status?: "error" | "loading" | "done", importance?: "major" | "minor") => void
 ){
-	try {
-		const lockRes = await getServerLock(folderId)
 
-		if(!lockRes.isHosted)
+	const defaultLock = {hostName: "", hostEmail: "", publicIp: "", startedAt: "", expiresAt: "", status:  "offline" }
+
+	try {
+		let lockRes = await getServerLock(folderId);
+
+		if(lockRes.lockData.status === "offline" || lockRes.lockData.status === "stopping")
 			return {
 				success : false,
 				error: "This server is not being hosted."
 			}
-		
+		await updateLockFile(folderId, "stopping")
+
 		onProgress("Uploading the server files to the drive...", "loading", "major")
 		const uploadRes = await uploadServerFolder(folderId, onProgress)
 		onProgress("Done uploading the files", "done", "major")
@@ -894,53 +894,21 @@ export async function stopServer(
 				error: uploadRes.error
 			}
 		
-		try {
-			await deleteLockFile(folderId)
-		} catch (error) {
-			try {
-				await deleteLockFile(folderId)
-			} catch (error:any) {
-				let parsed;
-				try {
-					parsed = JSON.parse(error.message);
-				} catch {
-					console.error("Non-JSON error:", error.message);
-				}
-
-				if (parsed.error.code !== 403) {
-					console.error(parsed.error.message);
-				}
-			}	
-		}		
+		await updateLockFile(folderId, "offline");
+		lockRes = await getServerLock(folderId)
 		
-		return { success: true }
+		return { 
+			success: true, 
+			lockData: lockRes.lockData 
+		}
 
 	} catch (err: any) {
 		return {
 			success: false,
+			lockData: defaultLock,
 			error: err.message
 		}
 	}
 }
 
-export async function deleteLockFile(serverId: string){
-	const client = getOAuthClient();
-
-	const query = `'${serverId}' in parents and name='lock.json' and trashed=false`
-	const url = `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}&fields=files(id)`
-	const data = await authorizedFetch(client,url)
-
-	if(!data.files?.length)
-		return {success : true}
-
-	const lockFileId = data.files[0].id
-
-	await authorizedFetch(
-		client,
-		`${DRIVE_BASE_URL}/${lockFileId}`, 
-		{ method: "DELETE" }
-	)
-
-	return { success: true }
-}
 

@@ -1,5 +1,5 @@
 import './greeting-section.css'
-import { useServerStore, useUserStore } from '../../store/store'
+import { useUserStore, useServerStore } from '../../store/store'
 import SelectServer from '../select-server';
 import { ChevronUp } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -12,8 +12,7 @@ import StartupProgress from '../startup-progress';
 export default function GreetingSection() {
 
     const { userName, loadingUser, driveScopeAllowed } = useUserStore();
-    const { hostingStatus } = useServerStore();
-    const [serverRunning, setServerRunning] = useState(false);
+    const {serverRunning, setServerRunning} = useServerStore();
     const [notAtTop, setNotAtTop] = useState(false);
     const [showProgress, setShowProgress] = useState(true)
 
@@ -28,27 +27,29 @@ export default function GreetingSection() {
     }, []);
 
     useEffect(()=>{
-        window.ipcRenderer.on("server-started", () => {
-            setServerRunning(true);
-        });
+        async function init() {
+            const isRunning = await window.ipcRenderer.invoke("is-server-running");
+            if(isRunning)
+                setServerRunning(true)
+            else
+                setServerRunning(false)
+        };
 
-        window.ipcRenderer.on("server-stopped", () => {
-            setServerRunning(false);
-        });
+        init();
+
+        window.ipcRenderer.on("server-started", () => setServerRunning(true));
+        window.ipcRenderer.on("server-stopped", () => setServerRunning(false));
 
         window.ipcRenderer.on("show-progress", () => {
             setShowProgress(true)
         });
-
         window.ipcRenderer.on("hide-progress", () => {
             setShowProgress(false)
         });
-
         window.ipcRenderer.on("server-output", (_, line)=> {
             if(/Done\s*\(/.test(line))
                 setShowProgress(false)
         })
-
     }, [])
 
     if (loadingUser)
@@ -65,13 +66,13 @@ export default function GreetingSection() {
             <div className='first-page'>
                 <h2 className="greeting-title">Welcome, {userName}!</h2>
                 <div className='starter-section'>
-                <div><OnOffButton/></div>
-                {showProgress && <div><StartupProgress/></div>}
-                <div><SelectServer/></div>
-                <div><PlayitggLink/></div>
+                    <div><OnOffButton/></div>
+                    {showProgress && <div><StartupProgress/></div>}
+                    <div><SelectServer/></div>
+                    <div><PlayitggLink/></div>
+                </div>
             </div>
-            </div>
-            {hostingStatus && hostingStatus?.isHosted && serverRunning &&
+            {serverRunning &&
                 <div className='console-section'><ServerConsole/></div>
             }
             {notAtTop && 

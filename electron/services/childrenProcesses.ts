@@ -1,4 +1,4 @@
-import { spawn, ChildProcess, exec } from "child_process";
+import { spawn, ChildProcess, exec, execSync } from "child_process";
 import fs from "fs";
 
 let serverProcess: ChildProcess | null = null;
@@ -16,17 +16,38 @@ export function launchPlayitgg(playitggPath: string): ChildProcess | null {
     return playitggProcess;
 }
 
-export function launchServer(serverPath: string, ram: {MIN: number, MAX: number}): ChildProcess | null {
+export function launchServer(serverPath: string, ram: {MIN: number, MAX: number}) {
     const files = fs.readdirSync(serverPath);
-    const jarFile = files.find(f => f.endsWith(".jar"));
-    if (!jarFile) return null;
+    const jarFiles = files.filter(f => f.endsWith(".jar"));
+
+    if(jarFiles.length === 0)
+        return {
+            success : false,
+            error: "Error: No .jar file found in the directory."
+        }
+    if(jarFiles.length > 1)
+        return {
+            success : false,
+            error: "Error: Multiple .jar files are present in the directory."
+        }
+
+    try {
+        execSync("java -version", { stdio: "ignore" });
+    } catch {
+        return { success: false, error: "Java not installed" };
+    }
+
+    const jarFile = jarFiles[0]
 
     serverProcess = spawn(
         "java",
         [`-Xmx${ram.MAX}M`, `-Xms${ram.MIN}M`, "-jar", jarFile, "nogui"],
         { cwd: serverPath, stdio: ["pipe", "pipe", "pipe"], windowsHide: true }
     );
-    return serverProcess;
+    return {
+        success: true,
+        process: serverProcess,
+    }
 }
 
 export function killServer() {

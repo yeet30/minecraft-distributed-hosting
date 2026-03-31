@@ -1,5 +1,5 @@
 import './select-server.css'
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useServerStore, useUserStore, useLocalStore } from '../../store/store'
 import { Play, Loader2 } from "lucide-react";
 import { IServerFolder } from '../../lib/types';
@@ -12,15 +12,29 @@ export default function SelectServer(){
         selectedServer, 
         loadingServers,
         loadingHosting,
-        hostingStatus,
-        setHostingStatus,
+        lockStatus,
+        setLockStatus,
         setLoadingHosting, 
         setServerById, 
     } = useServerStore();
 
     const [list, setList] = useState<IServerFolder[]>(servers)
     const [isListOpen, setIsListOpen] = useState(false)
+    const lockFetchedRef = useRef(false);
     const [serverDisplay, setServerDisplay] = useState<string>(selectedServer?.name ?? "")
+
+    function getHostingMessage(): string {
+        switch (lockStatus && lockStatus.status) {
+            case "online":
+            return `is currently hosted by ${lockStatus.hostEmail === userEmail ? "you" : lockStatus.hostName}, at:`;
+            case "starting":
+            return "is starting the hosting...";
+            case "stopping":
+            return "is stopping the hosting...";
+            default:
+            return "is not being hosted right now.";
+        }
+    }
 
     function handleButton(){
         setIsListOpen(!isListOpen)
@@ -37,25 +51,30 @@ export default function SelectServer(){
     }
 
     async function handleLock(){
-        if(loadingServers || !selectedServer) return
+        if (loadingServers || !selectedServer?.id) return
         setLoadingHosting(true)
-        const res = await window.ipcRenderer.invoke("get-server-lock", selectedServer.id)
-        setLoadingHosting(false)
-        if(!res.isHosted) {
-            setHostingStatus(null)
-            return 
+        try {
+            const lockRes = await window.ipcRenderer.invoke("get-server-lock", selectedServer.id)
+            setLockStatus(lockRes.lockData)
+        } catch (err) {
+            console.error("Failed to get server lock:", err)
+        } finally {
+            setLoadingHosting(false)
         }
-        setHostingStatus(res)
-    }
+    }    
+
+    useEffect(()=>{
+        setServerDisplay(selectedServer?.name ?? "");
+        if (!selectedServer || lockFetchedRef.current) return;
+        
+        lockFetchedRef.current = true
+        handleLock();
+    },[selectedServer])
 
     useEffect(()=>{
         setList(servers)
     },[servers])
 
-    useEffect(()=>{
-        setServerDisplay(selectedServer?.name ?? "");
-        handleLock()
-    },[selectedServer])
 
     return (
         <div className="select-server-wrapper">
@@ -100,12 +119,8 @@ export default function SelectServer(){
             <h4>
                 {loadingHosting
                     ? "... the server"
-                    : (hostingStatus && hostingStatus?.isHosted)
-                        ? `is currently hosted by ${hostingStatus.lock.hostEmail===userEmail
-                            ? " you."
-                            : `${hostingStatus.lock.hostName}`
-                        }`
-                        : "is not being hosted right now."}
+                    : getHostingMessage()
+                }
             </h4>
         </div>
     )

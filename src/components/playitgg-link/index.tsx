@@ -7,7 +7,7 @@ export default function PlayitggLink(){
 
     const [link,setLink] = useState("")
     const [copied, setCopied] = useState(false);
-    const {hostingStatus} = useServerStore();
+    const {lockStatus} = useServerStore();
 
     async function handleCopy() {
         try {
@@ -20,12 +20,13 @@ export default function PlayitggLink(){
     }
 
     useEffect(()=>{
-        if(!hostingStatus || !hostingStatus.isHosted) {
+        console.log(lockStatus)
+        if(!lockStatus || lockStatus.status !=="online") {
             setLink("")
             return
         }
-        setLink(hostingStatus.lock.publicIp)
-    }, [hostingStatus])
+        setLink(lockStatus.publicIp)
+    }, [lockStatus])
 
     if(!link) return null
 

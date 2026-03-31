@@ -7,7 +7,7 @@ import { IStartupOptions } from '../../lib/types';
 export default function OnOffButton(){
 
     const { userEmail } = useUserStore();
-    const {loadingServers, selectedServer, hostingStatus, setHostingStatus} = useServerStore();
+    const {loadingServers, selectedServer, lockStatus, setLockStatus} = useServerStore();
     const { playitggPath, allocatedRAM } = useLocalStore();
     const [loadingOnOff, setLoadingOnOff] = useState(false)
 
@@ -23,37 +23,39 @@ export default function OnOffButton(){
         }
 
         const result = await window.ipcRenderer.invoke("start-server", options)
-        if (!result.success) {
-            setHostingStatus(null)
+
+        console.log("Start res: ", result)
+        
+        if (!result.success){
             alert(result.error)
             setLoadingOnOff(false)
             return
         }
-        setHostingStatus(result.hostingStatus)
+        setLockStatus(result.lockStatus)
         setLoadingOnOff(false)
     }
 
     async function handleStop() {
-        if (!hostingStatus || !selectedServer) return 
+        if (!lockStatus || !selectedServer) return 
         setLoadingOnOff(true)
         const res = await window.ipcRenderer.invoke("stop-server", selectedServer.id)
-        if (!res.success) {
-            setLoadingOnOff(false)
+        console.log("Stop res: ", res)
+        if (!res.success){
             alert(res.error)
             return
         }
-        setHostingStatus(null)
+        setLockStatus(res.lockData)
         setLoadingOnOff(false)
     }
 
     return(
         <div className='onOff-wrapper'>
-            {hostingStatus && hostingStatus?.isHosted
+            {lockStatus && lockStatus.status === "online"
                 ?
                     <button 
                     className='onOff-button' 
                     onClick={handleStop} 
-                    disabled={hostingStatus.lock.hostEmail !== userEmail || loadingServers}>
+                    disabled={lockStatus.hostEmail !== userEmail || loadingServers}>
                         {loadingOnOff  
                             ? <Loader2 size={128} className='spinner'/>
                             : <Square size={120} fill="currentColor"/>

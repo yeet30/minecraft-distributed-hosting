@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { IServerFolder, THostingStatus } from "../lib/types";
+import { IServerFolder, ILockStatus } from "../lib/types";
 
 type UserStore = {
     userName: string;
@@ -17,12 +17,14 @@ type ServerStore = {
     selectedServer: IServerFolder | null;
     loadingServers: boolean;
     serversErrors: string;
-    hostingStatus: THostingStatus | null;
+    lockStatus: ILockStatus;
     loadingHosting: boolean;
+    serverRunning: boolean;
     
     setLoadingHosting: (loading: boolean) => void,
-    setHostingStatus: (status: THostingStatus) => void;
+    setLockStatus: (status: ILockStatus) => void;
     setServerById: (id: string) => void;
+    setServerRunning: (isRunning: boolean) => void,
     setServerByIndex: (index:number) => void
     loadServers: () => Promise<void>;
 }
@@ -46,11 +48,20 @@ const useServerStore = create<ServerStore>((set,get) => ({
     selectedServer: null,
     loadingServers: false,
     serversErrors: "",
-    hostingStatus: null,
+    lockStatus: {
+        hostName: "",
+        hostEmail: "",
+        publicIp: "",
+        startedAt: "",
+        expiresAt: "",
+        status:  "offline" 
+    },
     loadingHosting: true,
+    serverRunning: false,
 
     setLoadingHosting: (loading: boolean) => set({loadingHosting: loading}),
-    setHostingStatus: (status: THostingStatus) => set({hostingStatus: status}),
+    setLockStatus: (status: ILockStatus) => set({lockStatus: status}),
+    setServerRunning: (isRunning: boolean) => set({serverRunning: isRunning}),
     setServerById: (id:string) => set({ selectedServer: get().servers.find(server=> server.id === id) }),
     setServerByIndex: (index:number) => set({ selectedServer: get().servers[index] ?? get().servers[0] ?? null }),
 

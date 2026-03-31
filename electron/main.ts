@@ -23,7 +23,7 @@ import {
 
 import { launchServer, getServerProcess, getPlayitggProcess, killPlayitgg, killServer } from './services/childrenProcesses'
 import { getServerPath, setServerPath, getLocalVariable, setLocalVariable } from './services/localServerStore'
-import { IStartupOptions } from '../src/lib/types'
+import { ILockStatus, IStartupOptions } from '../src/lib/types'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -93,15 +93,37 @@ app.on('activate', () => {
 })
 
 app.on('will-quit', async (event) => {
-	console.log(currentHostingServerId)
-    if (currentHostingServerId) {
-        event.preventDefault();
-        clearInterval(heartbeatInterval!);
-        heartbeatInterval = null;
-        await stopServer(currentHostingServerId, sendProgress);
-        currentHostingServerId = null;
-        app.quit();
+	win?.webContents.send("show-progress");
+	const playitggProcess = getPlayitggProcess()
+	let stopRes;
+
+	if(playitggProcess){
+		event.preventDefault()
+		sendProgress("Closing down the playitgg client.", "loading", "major")
+		killPlayitgg()
+		sendProgress("Finished closing the playitgg client.", "done", "major")
+	}
+
+	if (currentHostingServerId) {
+		event.preventDefault()
+		sendProgress("Closing down the server console.", "loading", "major")
+		killServer()
+		sendProgress("Finished closing down the server console.", "done", "major")
+
+		stopRes = await stopServer(currentHostingServerId, sendProgress);
+		currentHostingServerId = null;
+		win?.webContents.send("hide-progress");
+		if(!stopRes.success)
+			dialog.showMessageBox({
+				type: "info",
+				title: "Info",
+				message: stopRes.error,
+			});
     }
+
+	clearInterval(heartbeatInterval!);
+	heartbeatInterval = null;
+	app.quit();
 });
 
 function sendProgress(message: string, status: 'loading' | 'done' | 'error' = 'loading', importance: 'major' | 'minor' = 'minor') {
@@ -113,14 +135,21 @@ ipcMain.handle("start-server", async (_, options: IStartupOptions) => {
 	win?.webContents.send("show-progress");
     const result = await startServer(options, sendProgress);
 
-    if (!result.success) return result;
+    if (!result.success) {
+		return {success: false, error: result.error}
+	};
 
     // Launch the actual MC server process
-    const serverProcess = launchServer(options.serverPath, options.RAMoptions);
-    if (!serverProcess) {
-        await stopServer(options.folderId, sendProgress);
-        return { success: false, error: "server.jar not found." };
-    }
+    const launchRes = launchServer(options.serverPath, options.RAMoptions);
+    if (!launchRes.success) {
+		await stopServer(options.folderId, sendProgress);
+		win?.webContents.send("server-stopped");
+		return {
+			success: false, 
+			error: launchRes.error
+		}
+	}
+	const serverProcess = launchRes.process!
 
     // Stream server output to renderer
 	win?.webContents.send("server-started");
@@ -148,18 +177,24 @@ ipcMain.handle("start-server", async (_, options: IStartupOptions) => {
     // Start heartbeat
     currentHostingServerId = options.folderId;
     heartbeatInterval = setInterval(async () => {
-        await updateLockFile(options.folderId);
+        await updateLockFile(options.folderId, "online");
     }, 20000);
 
 	win?.webContents.send("hide-progress");
 
-    return { success: true, publicIp: result.publicIp, hostingStatus: result.lockRes };
+    return { success: true, lockStatus: result.lockData };
 });
 
-ipcMain.handle("stop-server", async (_, serverId) => {
+ipcMain.handle("stop-server", async () => {
 
 	win?.webContents.send("show-progress");
 	const playitggProcess = getPlayitggProcess()
+
+	if(!currentHostingServerId)
+		return {
+			success: false,
+			error: "Server is not running."
+		}
 
 	if(playitggProcess){
 		sendProgress("Closing down the playitgg client.", "loading", "major")
@@ -171,11 +206,21 @@ ipcMain.handle("stop-server", async (_, serverId) => {
 	sendProgress("Finished closing down the server console.", "done", "major")
 
     clearInterval(heartbeatInterval!);
+	const stopRes = await stopServer(currentHostingServerId, sendProgress);
     heartbeatInterval = null;
     currentHostingServerId = null;
-	const stopRes = await stopServer(serverId, sendProgress);
 	win?.webContents.send("hide-progress");
-    return stopRes
+
+	if(!stopRes.success){
+		return {
+			success: false,
+			error: stopRes.error
+		}
+	}
+    return {
+		success: true,
+		lockData: stopRes
+	}
 });
 
 ipcMain.handle("send-server-command", (_, command: string) => {
@@ -187,6 +232,10 @@ ipcMain.handle("send-server-command", (_, command: string) => {
 
     return { success: true };
 });
+
+ipcMain.handle("is-server-running", ()=>{
+	return currentHostingServerId;
+})
 
 ipcMain.handle("google-login", async () => {
 	const result = await loginWithGoogle();
@@ -202,24 +251,35 @@ ipcMain.handle("google-is-logged-in", () => {
 })
 
 ipcMain.handle("google-logout", async () => {
-	console.log(currentHostingServerId)
-	/*
+
+	win?.webContents.send("show-progress");
 	const playitggProcess = getPlayitggProcess()
+	let stopRes;
+
+	if(playitggProcess){
+		sendProgress("Closing down the playitgg client.", "loading", "major")
+		killPlayitgg()
+		sendProgress("Finished closing the playitgg client.", "done", "major")
+	}
+
 	if (currentHostingServerId) {
-		if(playitggProcess){
-			sendProgress("Closing down the playitgg client.", "loading", "major")
-			killPlayitgg()
-			sendProgress("Finished closing the playitgg client.", "done", "major")
-		}
 		sendProgress("Closing down the server console.", "loading", "major")
 		killServer()
 		sendProgress("Finished closing down the server console.", "done", "major")
-        clearInterval(heartbeatInterval!);
-        heartbeatInterval = null;
-        await stopServer(currentHostingServerId, sendProgress);
-        currentHostingServerId = null;
+
+		stopRes = await stopServer(currentHostingServerId, sendProgress);
+		currentHostingServerId = null;
+		win?.webContents.send("hide-progress");
+		if(!stopRes.success)
+			dialog.showMessageBox({
+				type: "info",
+				title: "Info",
+				message: stopRes.error,
+			});
     }
-	*/
+
+	clearInterval(heartbeatInterval!);
+	heartbeatInterval = null;
 		
     return await logoutGoogle();
 })
@@ -300,7 +360,7 @@ ipcMain.handle("rename-server", async (_, folderId, newName) => {
 	return await renameServerFolder(folderId, newName);
 });
 
-ipcMain.handle("get-server-lock", async (_, folderId) => {
+ipcMain.handle("get-server-lock", async (_, folderId): Promise<{ lockData: ILockStatus; lockFileId: string }> => {
 	return await getServerLock(folderId);
 });
 

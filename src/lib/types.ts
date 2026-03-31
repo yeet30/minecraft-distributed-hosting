@@ -21,16 +21,14 @@ export interface IServerFolder {
     permittedUsers: IPermittedUser[]
 }
 
-export type THostingStatus = {
-    isHosted: boolean,
-    lock: {
-        hostName: string;
-        hostEmail: string;
-        publicIp: string;
-        startedAt: string;
-        expiresAt: string;
-    }
-} | null;
+export interface ILockStatus {
+    hostName: string;
+    hostEmail: string;
+    publicIp: string;
+    startedAt: string;
+    expiresAt: string;
+    status: "starting" | "online" | "stopping" | "offline" 
+};
 
 export interface IStartupOptions {
     folderId: string;
