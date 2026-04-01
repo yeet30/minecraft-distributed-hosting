@@ -2,11 +2,13 @@ import './scripts-options.css'
 import { Pencil } from 'lucide-react'
 import { useEffect, useState } from 'react';
 import { useLocalStore } from '../../store/store';
+import { IChecklist } from '../../lib/types';
+import OptionRow from '../option-row';
 
 export default function ScriptsOptions(){
 
-    const {allocatedRAM, playitggPath, setPlayitggPath, setAllocatedRAM} = useLocalStore();
-    const [enable, setEnable] = useState<boolean>(playitggPath ? true : false)
+    const { checklist, allocatedRAM, playitggPath, setPlayitggPath, setAllocatedRAM, setChecklist} = useLocalStore();
+    const [checklistBuffer, setChecklistBuffer] = useState<IChecklist>(checklist)
     const [pathBuffer, setPathBuffer] = useState<string>(playitggPath)
     const [ram,setRam] = useState({
         min: allocatedRAM.MIN,
@@ -40,13 +42,13 @@ export default function ScriptsOptions(){
         setPathBuffer(playitggPath)
     }, [playitggPath])
     
-    function handleSave() {
-        if (enable && !pathBuffer) {
+    async function handleSave() {
+        if (checklistBuffer.playitgg && !pathBuffer) {
             alert("Please set the path if you want to enable playit.gg");
             return;
         }
 
-        if (!enable)
+        if (!checklistBuffer.playitgg)
             setPathBuffer("");
 
         let changes: string[] = [];
@@ -56,7 +58,7 @@ export default function ScriptsOptions(){
             changes.push("path");
         }
 
-        if (!enable && playitggPath !== "") {
+        if (!checklistBuffer.playitgg && playitggPath !== "") {
             setPlayitggPath("");
             changes.push("path");
         }
@@ -66,27 +68,32 @@ export default function ScriptsOptions(){
             changes.push("ram");
         }
 
+        if(checklistBuffer.download !== checklist.download 
+            || checklistBuffer.upload !== checklist.upload 
+            || checklistBuffer.playitgg !== checklist.playitgg
+            || checklistBuffer.serverConsole !== checklist.serverConsole
+        ){
+            setChecklist(checklistBuffer)
+            changes.push("startup options")
+        }
+
         if (changes.length > 0)
             alert(`Changes made to the ${changes.join(" and ")} are saved.`);
+        else
+            alert("No changes have been made.")
     }
 
+    if(!checklist)
+        return "Loading..."
     return (
         <div className='scripts-wrapper'>
-            <div className='playitgg-div'>
-                <div className='playitgg-contents'>
-                    <span className='playitgg-title'>
-                        <h3>Playit.GG</h3>
-                        <label htmlFor="enable-check" id='enable-label' className = {enable ? "enabled": ""}>
-                            Enable
-                            <input 
-                            type="checkbox"
-                            name="enable-check" 
-                            id='enable-check' 
-                            checked={enable}
-                            onChange={(e) => setEnable(e.target.checked)}/>
-                        </label>
-                    </span>
-                    <span className='path-span'>
+            <OptionRow 
+                title='Playitgg' 
+                enable={checklistBuffer.playitgg} 
+                onChange={(newValue) => setChecklistBuffer(prev => ({ ...prev, playitgg: newValue }))}
+            >
+                <p>Launches the Playit.gg console on startup.</p>
+                <span className='path-span'>
                         {pathBuffer
                             ? pathBuffer
                             : <span className='path-span'>
@@ -106,41 +113,62 @@ export default function ScriptsOptions(){
                             </button>
                         }
                     </span>
-                </div>
-
-                {!enable && <div className='playitgg-overlay'/>}
-            </div>
+            </OptionRow>
             
-
-            <h3>RAM Allocation</h3>
-            <div className='ram-allocation'>
-                <div className='ram-div'>
-                    <label htmlFor="min-ram">Min RAM</label>
-                    <span><input 
-                        id='min-ram' 
-                        name="min-ram" 
-                        type="number" 
-                        value={ram.min}
-                        onChange={(e) => handleMin(e)}/> 
+            <OptionRow 
+                title='Launch Server Console' 
+                enable={checklistBuffer.serverConsole} 
+                onChange={(newValue) => setChecklistBuffer(prev => ({ ...prev, serverConsole: newValue }))}
+            >
+                <p>Starts the server console on startup.</p>
+                <h4>RAM Allocation</h4>
+                <div className='ram-allocation'>
+                    <div className='ram-div'>
+                        <label htmlFor="min-ram">Min RAM</label>
+                        <span><input 
+                            id='min-ram' 
+                            name="min-ram" 
+                            type="number" 
+                            value={ram.min}
+                            onChange={(e) => handleMin(e)}/> 
+                            MB
+                        </span>
+                    </div>
+                    
+                    <div className='ram-div'>
+                        <label htmlFor="max-ram">
+                            Max RAM
+                        </label>
+                        <span>
+                            <input 
+                            id='max-ram' 
+                            name="max-ram" 
+                            type="number" 
+                            value={ram.max}
+                            onChange={(e) => handleMax(e)}/> 
                         MB
-                    </span>
+                        </span>
+                    </div>
                 </div>
-                
-                <div className='ram-div'>
-                    <label htmlFor="max-ram">
-                        Max RAM
-                    </label>
-                    <span>
-                        <input 
-                        id='max-ram' 
-                        name="max-ram" 
-                        type="number" 
-                        value={ram.max}
-                        onChange={(e) => handleMax(e)}/> 
-                    MB
-                    </span>
-                </div>
-            </div>
+            </OptionRow>
+
+            <OptionRow 
+                title='Download' 
+                enable={checklistBuffer.download} 
+                onChange={(newValue) => setChecklistBuffer(prev => ({ ...prev, download: newValue }))}
+            >
+                <p>Download the files from the shared drive on startup.</p>
+            </OptionRow>
+
+            <OptionRow 
+                title='Upload' 
+                enable={checklistBuffer.upload} 
+                onChange={(newValue) => setChecklistBuffer(prev => ({ ...prev, upload: newValue }))}
+            >
+                <p>Uploads the files to the shared drive on close down.</p>
+            </OptionRow>
+                    
+            
             <span className='save-span'>
                 <button className='save-button' onClick={handleSave}>Save Changes</button>
             </span>

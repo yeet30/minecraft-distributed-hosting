@@ -17,12 +17,21 @@ function readStore(): Store {
     const storePath = getStorePath();
 
     if (!fs.existsSync(storePath))
-        return { paths: {}, joinedServerIds: [], localVariables: {
+        return { 
+            paths: {}, 
+            joinedServerIds: [], 
+            localVariables: {
                 selectedIndex: 0, 
                 playitggPath: "",
                 allocatedRAM: {
                     MIN: 2048,
                     MAX: 4096
+                },
+                checklist: {
+                    download: true,
+                    upload: true,
+                    serverConsole: true,
+                    playitgg: true
                 }
             } 
         }
@@ -69,7 +78,7 @@ export function removeJoinedServer(serverId: string) {
     writeStore(store);
 }
 
-export function getLocalVariable(variable: keyof ILocalVariables){
+export function getLocalVariable<K extends keyof ILocalVariables>(variable: K): ILocalVariables[K] {
     const store = readStore()
     return store.localVariables[variable];
 }

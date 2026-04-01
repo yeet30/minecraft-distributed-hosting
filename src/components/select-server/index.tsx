@@ -25,7 +25,7 @@ export default function SelectServer(){
     function getHostingMessage(): string {
         switch (lockStatus && lockStatus.status) {
             case "online":
-            return `is currently hosted by ${lockStatus.hostEmail === userEmail ? "you" : lockStatus.hostName}, at:`;
+            return `is currently hosted by ${lockStatus.hostEmail === userEmail ? "you" : lockStatus.hostName}${lockStatus.publicIp ? " at:": "."}`;
             case "starting":
             return "is starting the hosting...";
             case "stopping":

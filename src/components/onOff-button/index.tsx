@@ -7,8 +7,8 @@ import { IStartupOptions } from '../../lib/types';
 export default function OnOffButton(){
 
     const { userEmail } = useUserStore();
-    const {loadingServers, selectedServer, lockStatus, setLockStatus} = useServerStore();
-    const { playitggPath, allocatedRAM } = useLocalStore();
+    const { loadingServers, selectedServer, lockStatus, setLockStatus} = useServerStore();
+    const { playitggPath, allocatedRAM, checklist } = useLocalStore();
     const [loadingOnOff, setLoadingOnOff] = useState(false)
 
     async function handleStart() {
@@ -16,6 +16,7 @@ export default function OnOffButton(){
         setLoadingOnOff(true)
 
         const options: IStartupOptions = {
+            checklist: checklist,
             folderId: selectedServer.id,
             serverPath: selectedServer.path,
             playitggPath: playitggPath,
@@ -38,7 +39,13 @@ export default function OnOffButton(){
     async function handleStop() {
         if (!lockStatus || !selectedServer) return 
         setLoadingOnOff(true)
-        const res = await window.ipcRenderer.invoke("stop-server", selectedServer.id)
+
+        const options = {
+            shouldUpload: checklist.upload,
+            folderId: selectedServer.id
+        }
+
+        const res = await window.ipcRenderer.invoke("stop-server", options)
         console.log("Stop res: ", res)
         if (!res.success){
             alert(res.error)

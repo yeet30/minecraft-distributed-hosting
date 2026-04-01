@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { IServerFolder, ILockStatus } from "../lib/types";
+import { IServerFolder, ILockStatus, IChecklist } from "../lib/types";
 
 type UserStore = {
     userName: string;
@@ -31,6 +31,12 @@ type ServerStore = {
 
 interface LocalVariables{
     selectedIndex: number;
+    checklist: {
+        download: boolean;
+        upload: boolean;
+        serverConsole: boolean;
+        playitgg: boolean;
+    }
     playitggPath: string;
     allocatedRAM: {
         MIN: number,
@@ -41,6 +47,7 @@ interface LocalVariables{
     setSelectedIndex: (index: number) => Promise<void>
     setAllocatedRAM: (min: number, max: number) => Promise<void>
     setPlayitggPath: (path: string) => void
+    setChecklist: (list: IChecklist) => void
 };
 
 const useServerStore = create<ServerStore>((set,get) => ({
@@ -114,6 +121,12 @@ const useUserStore = create<UserStore>((set) => ({
 
 const useLocalStore = create<LocalVariables>((set) => ({
     selectedIndex: 0,
+    checklist: {
+        download: true,
+        upload: true,
+        serverConsole: true,
+        playitgg: true
+    },
     playitggPath: "",
     allocatedRAM: {
         MIN: 2048,
@@ -125,11 +138,13 @@ const useLocalStore = create<LocalVariables>((set) => ({
             const path = await window.ipcRenderer.invoke("get-local-variable", "playitggPath")
             const index = await window.ipcRenderer.invoke("get-local-variable", "selectedIndex")
             const allocatedRAM = await window.ipcRenderer.invoke("get-local-variable", "allocatedRAM")
+            const checkList = await window.ipcRenderer.invoke("get-local-variable", "checklist")
             
             set({
                 playitggPath: path,
                 selectedIndex: index,
                 allocatedRAM: allocatedRAM || {MIN: 2048, MAX: 4096},
+                checklist: checkList
             })
         },
 
@@ -152,6 +167,12 @@ const useLocalStore = create<LocalVariables>((set) => ({
         async function (path: string) {
             await window.ipcRenderer.invoke("set-local-variable", "playitggPath", path)
             set({playitggPath:path})
+        },
+
+    setChecklist:
+        async function (list: IChecklist) {
+            await window.ipcRenderer.invoke("set-local-variable", "checklist", list)
+            set({checklist: list})
         }
 }))
 

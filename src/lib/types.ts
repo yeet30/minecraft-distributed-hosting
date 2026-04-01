@@ -36,10 +36,24 @@ export interface ILocalVariables{
     allocatedRAM: {
         MIN: number,
         MAX: number
-    }
+    },
+    checklist: {
+        download: boolean,
+        upload: boolean,
+        serverConsole: boolean,
+        playitgg: boolean
+    },
+}
+
+export interface IChecklist {
+    download: boolean;
+    upload: boolean;
+    serverConsole: boolean;
+    playitgg: boolean;
 }
 
 export interface IStartupOptions {
+    checklist: IChecklist;
     folderId: string;
     serverPath: string,
     playitggPath: string;

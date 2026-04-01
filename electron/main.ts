@@ -108,7 +108,7 @@ app.on('will-quit', async (event) => {
 		killServer()
 		sendProgress("Finished closing down the server console.", "done", "major")
 
-		stopRes = await stopServer(currentHostingServerId, sendProgress);
+		stopRes = await stopServer({ shouldUpload: true, folderId: currentHostingServerId }, sendProgress);
 		currentHostingServerId = null;
 		win?.webContents.send("hide-progress");
 		if(!stopRes.success)
@@ -137,42 +137,48 @@ ipcMain.handle("start-server", async (_, options: IStartupOptions) => {
 		return {success: false, error: result.error}
 	};
 
+	let launchRes = null
+	let serverProcess= null;
+
     // Launch the actual MC server process
-    const launchRes = launchServer(options.serverPath, options.RAMoptions);
-    if (!launchRes.success) {
-		await stopServer(options.folderId, sendProgress);
-		win?.webContents.send("server-stopped");
-		return {
-			success: false, 
-			error: launchRes.error
+	if(options.checklist.serverConsole){
+		launchRes = launchServer(options.serverPath, options.RAMoptions);
+		if (!launchRes.success) {
+			await stopServer({ shouldUpload: false, folderId: options.folderId }, sendProgress);
+			win?.webContents.send("server-stopped");
+			return {
+				success: false, 
+				error: launchRes.error
+			}
 		}
+		serverProcess = launchRes.process!
+
+		// Stream server output to renderer
+		win?.webContents.send("server-started");
+		serverProcess.stdout?.on("data", (data) => {
+			const text = data.toString();
+
+			// Parse player list silently
+			const listMatch = text.match(/There are \d+ of a max of \d+ players online: ?(.*)/);
+			if (listMatch) {
+				currentPlayers = listMatch[1] ? listMatch[1].split(", ").filter(Boolean) : [];
+			} else {
+				// Only forward to console if it's not the list response
+				win?.webContents.send("server-output", text);
+			}
+		});
+		serverProcess.stderr?.on("data", (data) => {
+			win?.webContents.send("server-output", data.toString());
+		});
+		serverProcess.on("close", (code) => {
+			win?.webContents.send("server-output", `\n[System] Server exited with code ${code}\n`);
+			win?.webContents.send("server-stopped");
+		});
 	}
-	const serverProcess = launchRes.process!
 
-    // Stream server output to renderer
-	win?.webContents.send("server-started");
-    serverProcess.stdout?.on("data", (data) => {
-		const text = data.toString();
-
-		// Parse player list silently
-		const listMatch = text.match(/There are \d+ of a max of \d+ players online: ?(.*)/);
-		if (listMatch) {
-			currentPlayers = listMatch[1] ? listMatch[1].split(", ").filter(Boolean) : [];
-		} else {
-			// Only forward to console if it's not the list response
-			win?.webContents.send("server-output", text);
-		}
-    });
-    serverProcess.stderr?.on("data", (data) => {
-        win?.webContents.send("server-output", data.toString());
-    });
-    serverProcess.on("close", (code) => {
-        win?.webContents.send("server-output", `\n[System] Server exited with code ${code}\n`);
-        win?.webContents.send("server-stopped");
-    });
-
+    
     // Stream playit.gg link to renderer if enabled
-    if (result.playitggProcess) {
+    if (options.checklist.playitgg && result.playitggProcess) {
         result.playitggProcess.stdout?.on("data", (data) => {
             const text = data.toString("utf-8").replace(/\x1B\[[0-9;]*[a-zA-Z]/g, "");
             const match = text.match(/([a-zA-Z0-9.-]+\.joinmc\.link)\s*=>/);
@@ -219,7 +225,10 @@ ipcMain.handle("stop-server", async () => {
 	sendProgress("Finished closing down the server console.", "done", "major")
 
     clearInterval(heartbeatInterval!);
-	const stopRes = await stopServer(currentHostingServerId, sendProgress);
+
+	const shouldUpload = getLocalVariable("checklist").upload
+
+	const stopRes = await stopServer({ shouldUpload: shouldUpload, folderId: currentHostingServerId }, sendProgress);
     heartbeatInterval = null;
     currentHostingServerId = null;
 	currentPlayers = [];
@@ -281,7 +290,7 @@ ipcMain.handle("google-logout", async () => {
 		killServer()
 		sendProgress("Finished closing down the server console.", "done", "major")
 
-		stopRes = await stopServer(currentHostingServerId, sendProgress);
+		stopRes = await stopServer({ shouldUpload: true, folderId: currentHostingServerId }, sendProgress);
 		currentHostingServerId = null;
 		win?.webContents.send("hide-progress");
 		if(!stopRes.success)

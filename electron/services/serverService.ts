@@ -31,7 +31,7 @@ export async function startServer(
 	onProgress("Reserved...", "done", "major");
 
     // 3. Start playit.gg and file sync IN PARALLEL
-    const playitggProcess = playitggPath ? launchPlayitgg(playitggPath) : null;
+    const playitggProcess = (options.checklist.playitgg && playitggPath) ? launchPlayitgg(playitggPath) : null;
 	playitggProcess && onProgress("Booting up the playit.gg client...", "loading", "major");
     if (playitggPath && !playitggProcess) {
         await updateLockFile(folderId, "offline"); // release the lock
@@ -40,29 +40,48 @@ export async function startServer(
     }
 	playitggProcess && onProgress("Playit.gg client launched.", "done", "major");
 
-    // Run file sync and wait for playit link at the same time
-    const [syncRes, ip] = await Promise.all([
-        syncServer(folderId, onProgress),
-        playitggProcess ? waitForPlayitLink(playitggProcess) : Promise.resolve(null)
-    ]);
-	
+	let syncRes, ip;
+
+    // Run file sync and wait for playit link at the same time depending on the options
+
+	if(options.checklist.download && options.checklist.playitgg){
+		onProgress("Waiting for the ip from the playit.gg client.", "loading", "minor");
+		[syncRes, ip] = await Promise.all([
+			syncServer(folderId, onProgress),
+			playitggProcess ? waitForPlayitLink(playitggProcess) : Promise.resolve(null)
+		]);
+		onProgress("Finished downloading server files.", "done", "major")
+		onProgress("Received the ip from playitgg client.", "done", "minor")
+	}
+	else if (options.checklist.download){
+		[syncRes] = await Promise.all([
+			syncServer(folderId, onProgress)
+		])
+		onProgress("Finished downloading server files.", "done", "major")
+	}
+    else if (options.checklist.playitgg){
+		onProgress("Waiting for the ip from the playit.gg client.", "loading", "minor");
+		[ip] = await Promise.all([
+			playitggProcess ? waitForPlayitLink(playitggProcess) : Promise.resolve(null)
+		]);
+		onProgress("Received the ip from playitgg client.", "done", "minor")
+	}
+
 	publicIp = ip ?? "";
 
-    if (!syncRes.success) {
+    if (syncRes && !syncRes.success) {
 		onProgress("Could not download the server files.", "error", "major")
 		onProgress("Deleting the lock.", "loading", "minor")
         await updateLockFile(folderId, "offline");
         killPlayitgg();
         return { success: false, error: syncRes.error };
     }
-	onProgress("Finished downloading server files.", "done", "major")
-	onProgress("Received the ip from playitgg client.", "done", "minor")
 
     // 4. Update lock with public IP and running status
 	onProgress("Uploading the lock to the drive.", "loading", "major")
     await updateLockFile(folderId, "online");
 	lockRes = await getServerLock(folderId)
-	onProgress("Server successfully started.", "done", "major")
+	onProgress("Process successfully finished.", "done", "major")
 
     return { 
 		success: true, 
@@ -199,11 +218,12 @@ export function getMaxPlayers(serverPath: string): number | null {
 }
 
 export async function stopServer(
-	folderId: string,
+	options: {shouldUpload: boolean, folderId: string},
 	onProgress: (message: string, status?: "error" | "loading" | "done", importance?: "major" | "minor") => void
 ){
 
 	const defaultLock = {hostName: "", hostEmail: "", publicIp: "", startedAt: "", expiresAt: "", status:  "offline" }
+	const {shouldUpload, folderId} = options
 
 	try {
 		let lockRes = await getServerLock(folderId);
@@ -215,15 +235,17 @@ export async function stopServer(
 			}
 		await updateLockFile(folderId, "stopping")
 
-		onProgress("Uploading the server files to the drive...", "loading", "major")
-		const uploadRes = await uploadServerFolder(folderId, onProgress)
-		onProgress("Done uploading the files", "done", "major")
+		if(shouldUpload) {
+			onProgress("Uploading the server files to the drive...", "loading", "major")
+			const uploadRes = await uploadServerFolder(folderId, onProgress)
+			onProgress("Done uploading the files", "done", "major")
 
-		if(!uploadRes.success)
-			return {
-				success: false,
-				error: uploadRes.error
-			}
+			if(!uploadRes.success)
+				return {
+					success: false,
+					error: uploadRes.error
+				}
+		}
 		
 		await updateLockFile(folderId, "offline");
 		lockRes = await getServerLock(folderId)
