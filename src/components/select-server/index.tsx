@@ -1,5 +1,5 @@
 import './select-server.css'
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useServerStore, useUserStore, useLocalStore } from '../../store/store'
 import { Play, Loader2 } from "lucide-react";
 import { IServerFolder } from '../../lib/types';
@@ -20,7 +20,6 @@ export default function SelectServer(){
 
     const [list, setList] = useState<IServerFolder[]>(servers)
     const [isListOpen, setIsListOpen] = useState(false)
-    const lockFetchedRef = useRef(false);
     const [serverDisplay, setServerDisplay] = useState<string>(selectedServer?.name ?? "")
 
     function getHostingMessage(): string {
@@ -64,10 +63,9 @@ export default function SelectServer(){
     }    
 
     useEffect(()=>{
+        if (!selectedServer) return;
         setServerDisplay(selectedServer?.name ?? "");
-        if (!selectedServer || lockFetchedRef.current) return;
         
-        lockFetchedRef.current = true
         handleLock();
     },[selectedServer])
 

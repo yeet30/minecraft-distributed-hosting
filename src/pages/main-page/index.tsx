@@ -10,13 +10,19 @@ export default function MainPage(){
 
     const navigate = useNavigate();
 
-    const { loadServers, setServerByIndex } = useServerStore();
+    const { selectedServer, loadServers, setServerByIndex, setLockStatus } = useServerStore();
     const { loadUser, checkDriveScope } = useUserStore();
     const { loadLocalVariables } = useLocalStore();
 
     async function checkLoggedIn(){
         const loggedIn = await window.ipcRenderer.invoke("google-is-logged-in");
         if(!loggedIn) navigate ("/")
+    }
+
+    async function updateServerLock(){
+        if(!selectedServer) return
+        const lock = await window.ipcRenderer.invoke("get-server-lock", selectedServer.id)
+        setLockStatus(lock.lockData)
     }
 
     useEffect(() =>{
@@ -31,6 +37,12 @@ export default function MainPage(){
             setServerByIndex(index);
         }
         init()
+    },[])
+
+    useEffect(() =>{
+        window.ipcRenderer.on("lock-updated", async () => {
+            await updateServerLock()
+        });
     },[])
 
 

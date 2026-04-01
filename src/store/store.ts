@@ -29,7 +29,7 @@ type ServerStore = {
     loadServers: () => Promise<void>;
 }
 
-export interface LocalVariables{
+interface LocalVariables{
     selectedIndex: number;
     playitggPath: string;
     allocatedRAM: {

@@ -1,15 +1,12 @@
 import { app } from "electron";
 import path from "path";
 import fs from "fs";
-import { LocalVariables } from "../../src/lib/types";
+import { ILocalVariables } from "../../src/lib/types";
 
 type Store = {
     paths: Record<string, string>;
     joinedServerIds: string[];
-    localVariables: {
-        selectedIndex: number,
-        playitggPath: string
-    }
+    localVariables: ILocalVariables
 }
 
 function getStorePath() {
@@ -22,7 +19,11 @@ function readStore(): Store {
     if (!fs.existsSync(storePath))
         return { paths: {}, joinedServerIds: [], localVariables: {
                 selectedIndex: 0, 
-                playitggPath: ""
+                playitggPath: "",
+                allocatedRAM: {
+                    MIN: 2048,
+                    MAX: 4096
+                }
             } 
         }
 
@@ -68,12 +69,12 @@ export function removeJoinedServer(serverId: string) {
     writeStore(store);
 }
 
-export function getLocalVariable(variable: keyof LocalVariables){
+export function getLocalVariable(variable: keyof ILocalVariables){
     const store = readStore()
     return store.localVariables[variable];
 }
 
-export function setLocalVariable<K extends keyof LocalVariables>(variable: K, value: LocalVariables[K]) {
+export function setLocalVariable<K extends keyof ILocalVariables>(variable: K, value: ILocalVariables[K]) {
   const store = readStore();
   store.localVariables[variable] = value;
   writeStore(store);

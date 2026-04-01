@@ -20,7 +20,6 @@ export default function PlayitggLink(){
     }
 
     useEffect(()=>{
-        console.log(lockStatus)
         if(!lockStatus || lockStatus.status !=="online") {
             setLink("")
             return

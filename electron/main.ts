@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import { LocalVariables } from '../src/store/store'
+import { ILocalVariables } from '../src/lib/types'
 import { loginWithGoogle, getUserInfo, isAlreadyLoggedIn, logoutGoogle, isRequestAllowed, requestDriveScope } from './services/googleAuthService'
 import {
 	createServerFolder,
@@ -15,12 +15,9 @@ import {
 	getJoinedServers,
 	joinServerById,
 	renameServerFolder,
-	startServer,
-	getServerLock,
-	updateLockFile,
-	stopServer,
 } from './services/googleDriveService'
 
+import { startServer, getServerLock, updateLockFile, stopServer, getMaxPlayers } from './services/serverService' 
 import { launchServer, getServerProcess, getPlayitggProcess, killPlayitgg, killServer } from './services/childrenProcesses'
 import { getServerPath, setServerPath, getLocalVariable, setLocalVariable } from './services/localServerStore'
 import { ILockStatus, IStartupOptions } from '../src/lib/types'
@@ -30,6 +27,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 let heartbeatInterval: NodeJS.Timeout | null = null;
 let currentHostingServerId: string | null = null;
+let currentPlayers: string[] = [];
 
 // The built directory structure
 //
@@ -154,7 +152,16 @@ ipcMain.handle("start-server", async (_, options: IStartupOptions) => {
     // Stream server output to renderer
 	win?.webContents.send("server-started");
     serverProcess.stdout?.on("data", (data) => {
-        win?.webContents.send("server-output", data.toString());
+		const text = data.toString();
+
+		// Parse player list silently
+		const listMatch = text.match(/There are \d+ of a max of \d+ players online: ?(.*)/);
+		if (listMatch) {
+			currentPlayers = listMatch[1] ? listMatch[1].split(", ").filter(Boolean) : [];
+		} else {
+			// Only forward to console if it's not the list response
+			win?.webContents.send("server-output", text);
+		}
     });
     serverProcess.stderr?.on("data", (data) => {
         win?.webContents.send("server-output", data.toString());
@@ -177,13 +184,19 @@ ipcMain.handle("start-server", async (_, options: IStartupOptions) => {
     // Start heartbeat
     currentHostingServerId = options.folderId;
     heartbeatInterval = setInterval(async () => {
-        await updateLockFile(options.folderId, "online");
+        await updateLockFile(options.folderId, "online", currentPlayers);
+		serverProcess?.stdin?.write("list\n");
+		win?.webContents.send("lock-updated")
     }, 20000);
 
 	win?.webContents.send("hide-progress");
 
     return { success: true, lockStatus: result.lockData };
 });
+
+ipcMain.handle("get-current-players", ()=>{
+	return currentPlayers;
+})
 
 ipcMain.handle("stop-server", async () => {
 
@@ -209,6 +222,7 @@ ipcMain.handle("stop-server", async () => {
 	const stopRes = await stopServer(currentHostingServerId, sendProgress);
     heartbeatInterval = null;
     currentHostingServerId = null;
+	currentPlayers = [];
 	win?.webContents.send("hide-progress");
 
 	if(!stopRes.success){
@@ -320,6 +334,10 @@ ipcMain.handle("get-server-path", (_, serverId) => {
 	return getServerPath(serverId)
 })
 
+ipcMain.handle("get-max-players", (_, serverPath) => {
+	return getMaxPlayers(serverPath)
+})
+
 ipcMain.handle("sync-server", async (_, serverId) => {
 	return await syncServer(serverId, sendProgress)
 })
@@ -364,11 +382,11 @@ ipcMain.handle("get-server-lock", async (_, folderId): Promise<{ lockData: ILock
 	return await getServerLock(folderId);
 });
 
-ipcMain.handle("get-local-variable", async (_, variable: keyof LocalVariables) => {
+ipcMain.handle("get-local-variable", async (_, variable: keyof ILocalVariables) => {
     return getLocalVariable(variable);
 });
 
-ipcMain.handle("set-local-variable", async (_, variable: keyof LocalVariables, value: LocalVariables[typeof variable]) => {
+ipcMain.handle("set-local-variable", async (_, variable: keyof ILocalVariables, value: ILocalVariables[typeof variable]) => {
     setLocalVariable(variable, value);
     return true;
 });

@@ -56,7 +56,7 @@ export default function BurgerMenu() {
     }
 
     return (
-        <section id="wrapper">
+        <section id="burger-wrapper">
 
             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} items={modalItems}/>
 

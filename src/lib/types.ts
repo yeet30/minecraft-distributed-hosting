@@ -30,6 +30,15 @@ export interface ILockStatus {
     status: "starting" | "online" | "stopping" | "offline" 
 };
 
+export interface ILocalVariables{
+    selectedIndex: number;
+    playitggPath: string;
+    allocatedRAM: {
+        MIN: number,
+        MAX: number
+    }
+}
+
 export interface IStartupOptions {
     folderId: string;
     serverPath: string,
