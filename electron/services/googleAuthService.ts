@@ -5,68 +5,76 @@ import http from "http";
 import url from "url";
 import { OAuth2Client } from "google-auth-library";
 
-export async function loginWithGoogle(): Promise<{ success: boolean, error?: string }> {
+function getTokenPath() {
+	return path.join(app.getPath("userData"), "token.json");
+}
 
-	const credentialsPath = path.join(
-		process.cwd(),
-		"config",
-		"client_secret.json"
+function getCredentialsPath() {
+	return path.join(process.cwd(), "config", "client_secret.json");
+}
+
+export function getOAuthClient(): OAuth2Client {
+	const tokens = JSON.parse(
+		fs.readFileSync(getTokenPath(), "utf-8")
 	);
 
 	const credentials = JSON.parse(
-		fs.readFileSync(credentialsPath, "utf-8")
+		fs.readFileSync(getCredentialsPath(), "utf-8")
 	);
 
-	const { client_id, client_secret } =
-		credentials.installed;
+	const { client_id, client_secret } = credentials.installed;
 
-	const redirectUri = "http://localhost:3000";
+	const client = new OAuth2Client(client_id, client_secret);
 
-	const oauth2Client = new OAuth2Client(
-		client_id,
-		client_secret,
-		redirectUri
-	);
+	client.setCredentials(tokens);
 
+	return client;
+}
+
+export async function refreshIfNeeded(client: OAuth2Client) {
+	const tokens = client.credentials;
+	const BUFFER_MS = 60 * 1000; // refresh 1 minute early
+
+	if (!tokens.expiry_date || tokens.expiry_date <= Date.now() + BUFFER_MS) {
+		const { credentials } = await client.refreshAccessToken();
+		client.setCredentials(credentials);
+
+		fs.writeFileSync(
+			getTokenPath(),
+			JSON.stringify(credentials, null, 2)
+		);
+	}
+}
+
+export async function loginWithGoogle(): Promise<{ success: boolean, error?: string }> {
+
+	const oauth2Client = getOAuthClient();
 
 	//Create temporary server
 	return new Promise((resolve => {
 		const server = http.createServer(async (req, res) => {
-
 			try {
-				if (!req.url) return;
-
+				if (!req.url) 
+					return;
+				
 				const query = url.parse(req.url, true).query;
-
 				const code = query.code as string;
 
 				if (!code) {
-
 					res.end();
-
 					return;
 				}
 
 				res.end("Login successful. You can close this tab.");
-
 				server.close();
 
 				//Exchange code for token
 				const { tokens } = await oauth2Client.getToken(code);
-
 				oauth2Client.setCredentials(tokens);
 
 				//Save token
-				const tokenPath = path.join(
-					app.getPath("userData"),
-					"token.json"
-				);
-
-				fs.writeFileSync(
-					tokenPath,
-					JSON.stringify(tokens)
-				);
-
+				const tokenPath = path.join( app.getPath("userData"), "token.json" );
+				fs.writeFileSync( tokenPath, JSON.stringify(tokens));
 				console.log("TOKEN SAVED:", tokenPath);
 
 				resolve({ success: true })
@@ -77,7 +85,6 @@ export async function loginWithGoogle(): Promise<{ success: boolean, error?: str
 					error: err.message
 				})
 			}
-
 		});
 
 		//Start server
@@ -97,49 +104,73 @@ export async function loginWithGoogle(): Promise<{ success: boolean, error?: str
 	}));
 }
 
+export async function authorizedFetch( 
+	client: OAuth2Client, 
+	url: string, 
+	options: RequestInit = { method: "GET" },
+	headers: Record<string, string> = { "Content-Type": "application/json" }
+) {
+	
+	await refreshIfNeeded(client);
+	const accessToken = client.credentials.access_token;
+
+	const res = await fetch(url, {
+		...options,
+		headers: {
+			Authorization: `Bearer ${accessToken}`,
+			...(options.body ? { "Content-Type": "application/json" } : {}),
+			...headers
+		}
+	});
+
+	if (!res.ok) {
+		const errorText = await res.text();
+		throw new Error(errorText);
+	}
+
+	if (res.status === 204) {
+		return null;
+	}
+
+	const text = await res.text();
+
+	if (!text) {
+		return null;
+	}
+
+	return JSON.parse(text);
+}
+
+export async function debugUser(client: OAuth2Client) {
+	const res = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+		headers: {
+			Authorization: `Bearer ${client.credentials.access_token}`
+		}
+	});
+
+	return await res.json()
+}
+
 export async function getUserInfo() {
-
-	const tokenPath = path.join(
-		app.getPath("userData"),
-		"token.json"
-	);
-
-	const tokens = JSON.parse(
-		fs.readFileSync(tokenPath, "utf-8")
-	);
-
-	const credentialsPath = path.join(
-		process.cwd(),
-		"config",
-		"client_secret.json"
-	);
-
-	const credentials = JSON.parse(
-		fs.readFileSync(credentialsPath, "utf-8")
-	);
-
-	const { client_id, client_secret } =
-		credentials.installed;
-
-	const oauth2Client = new OAuth2Client(
-		client_id,
-		client_secret
-	);
-
-	oauth2Client.setCredentials(tokens);
-
+	const oauth2Client = getOAuthClient()
+	await refreshIfNeeded(oauth2Client)
+	const accessToken = oauth2Client.credentials.access_token;
 
 	const res = await fetch(
 		"https://www.googleapis.com/oauth2/v2/userinfo",
 		{
 			headers: {
 				Authorization:
-					`Bearer ${tokens.access_token}`
+					`Bearer ${accessToken}`
 			}
 		}
 	);
 
 	const data = await res.json();
+
+	if (!data.name && !data.email) {
+        throw new Error("Empty userinfo response");
+    }
 
 	return {
 		name: data.name,

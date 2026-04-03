@@ -1,9 +1,10 @@
 .option-row-wrapper{
 
     position: relative;
-    margin-top: 5px;
+    margin: 5px;
     padding: 5px 10px;
     border-radius: 10px;
+    box-shadow: -5px 5px 5px rgba(0, 0, 0, 0.35);
 
     .contents {
         position: relative;

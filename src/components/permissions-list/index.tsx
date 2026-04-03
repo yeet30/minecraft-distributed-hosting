@@ -32,7 +32,7 @@ export default function PermissionsList({ permissionsList, serverId , isOwner}: 
     async function handleRemove(memberId: string) {
 
         try {
-            const result = await window.ipcRenderer.invoke('drive-remove-permission', serverId, memberId)
+            const result = await window.ipcRenderer.invoke('drive-remove-permission', serverId, memberId, true)
         
             if (!result.success){
                 alert(result.error)

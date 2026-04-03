@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell, Menu } from 'electron'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
@@ -48,6 +48,7 @@ export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 'public') : RENDERER_DIST
 
 let win: BrowserWindow | null
+Menu.setApplicationMenu(null)
 
 function createWindow() {
 	win = new BrowserWindow({
@@ -359,8 +360,8 @@ ipcMain.handle("drive-invite-user", async (_, serverId, email, message?) => {
 	return await inviteUserToServer(serverId, email, message);
 });
 
-ipcMain.handle("drive-remove-permission", async (_, serverId, permissionId) => {
-	return await removeUserPermission(serverId, permissionId);
+ipcMain.handle("drive-remove-permission", async (_, serverId, permissionId, isOwner) => {
+	return await removeUserPermission(serverId, permissionId, isOwner);
 });
 
 ipcMain.handle("join-by-id", async (_, folderId) => {

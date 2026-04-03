@@ -23,7 +23,8 @@ export default function Modal({ isOpen, onClose, items, width = 400, height = 30
                 style={{
                     width: width,
                     height: height
-                }}>
+                }}
+            >
                 <button id='modal-close' onClick={onClose}>✕</button>
                 <div className='tab-section'>
                     <div id='modal-tabs'>

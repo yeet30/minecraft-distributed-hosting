@@ -9,6 +9,25 @@ type Store = {
     localVariables: ILocalVariables
 }
 
+const defaultStore: Store = {
+    paths: {},
+    joinedServerIds: [],
+    localVariables: {
+        selectedIndex: 0,
+        playitggPath: "",
+        allocatedRAM: {
+            MIN: 2048,
+            MAX: 4096
+        },
+        checklist: {
+            download: true,
+            upload: true,
+            serverConsole: true,
+            playitgg: true
+        }
+    }
+};
+
 function getStorePath() {
     return path.join(app.getPath("userData"), "localStore.json");
 }
@@ -16,43 +35,42 @@ function getStorePath() {
 function readStore(): Store {
     const storePath = getStorePath();
 
-    if (!fs.existsSync(storePath))
-        return { 
-            paths: {}, 
-            joinedServerIds: [], 
-            localVariables: {
-                selectedIndex: 0, 
-                playitggPath: "",
-                allocatedRAM: {
-                    MIN: 2048,
-                    MAX: 4096
-                },
-                checklist: {
-                    download: true,
-                    upload: true,
-                    serverConsole: true,
-                    playitgg: true
-                }
-            } 
-        }
+    if (!fs.existsSync(storePath)) {
+        writeStore(defaultStore);
+        return defaultStore;
+    }
 
-    const data = JSON.parse(fs.readFileSync(storePath, "utf-8"));
-
-    // Ensure joinedServerIds exists
-    if (!data.joinedServerIds)
-        data.joinedServerIds = [];
-
-    return data;
+    try {
+        return JSON.parse(fs.readFileSync(storePath, "utf-8"));
+    } catch {
+        writeStore(defaultStore);
+        return defaultStore;
+    }
 }
 
 function writeStore(data: Store) {
-    fs.writeFileSync(getStorePath(), JSON.stringify(data, null, 2));
+    const storePath = getStorePath();
+    const dir = path.dirname(storePath);
+
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+    }
+
+    fs.writeFileSync(storePath, JSON.stringify(data, null, 4), "utf-8");
 }
 
 export function setServerPath(serverId: string, localPath: string) {
     const store = readStore();
     store.paths[serverId] = localPath;
     writeStore(store);
+}
+
+export function removeServerPath(serverId: string) {
+    const store = readStore();
+    if (store.paths && serverId in store.paths) {
+        delete store.paths[serverId];
+        writeStore(store)
+    }
 }
 
 export function getServerPath(serverId: string) {
@@ -74,8 +92,10 @@ export function getJoinedServerIds(): string[] {
 
 export function removeJoinedServer(serverId: string) {
     const store = readStore();
-    store.joinedServerIds = store.joinedServerIds.filter(id => id !== serverId);
-    writeStore(store);
+    if (store.joinedServerIds.includes(serverId)) {
+        store.joinedServerIds = store.joinedServerIds.filter(id => id !== serverId);
+        writeStore(store);
+    }
 }
 
 export function getLocalVariable<K extends keyof ILocalVariables>(variable: K): ILocalVariables[K] {

@@ -12,13 +12,10 @@
 
     .list-text {
         padding-top: 1px;
-    }
-
-    .server-name{
         display: flex;
         align-items: center;
-        justify-content: space-between;
         height: 1.6rem;
+        width: 100%;
     }
 
     .name-input{
@@ -29,10 +26,13 @@
         margin: 0;
         font-size: inherit;
         font-family: inherit;
-        color: inherit;
+
+        min-width: 1ch;
+        max-width: 100%;
     }
 
     .edit-button{
+        margin-left: 1rem;
         padding: 0px 10px;
         border-radius: 10px;
         background-color: rgba(0, 0, 0, 0.3);
@@ -71,6 +71,7 @@
         color: rgb(150, 150, 150);
         border-bottom: solid;
         border-width: 1px;
+        user-select: text;
     }
 
     .second-row .list-button {

@@ -14,11 +14,9 @@ export default function ServerSlot({ server } : Props){
 
     const {userEmail} = useUserStore();
     const {loadServers} = useServerStore();
-
     const {confirm, popup} = useConfirm();
 
     const inputRef = useRef<HTMLInputElement>(null);
-
     const [isOwner,setIsOwner] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [nameBuffer, setNameBuffer] = useState(server.name)
@@ -94,6 +92,7 @@ export default function ServerSlot({ server } : Props){
             const accepted = await confirm({
                 message:"Are you sure you want to delete this folder from the shared Google Drive?",
                 confirmText:"Yes",
+                cancelText:"No"
             })
 
             if(!accepted)
@@ -105,24 +104,25 @@ export default function ServerSlot({ server } : Props){
             if (!result.success) 
                 alert(result.error);
             else
-                loadServers();
+                await loadServers();
         }
         else {
             const accepted = await confirm({
                 message:"Are you sure you want to leave from this shared Google Drive folder?",
                 confirmText:"Yes",
+                cancelText: "No"
             })
 
             if(!accepted)
                 return;
 
             setLoading(prev => ({...prev, delete: true}))
-            const result = await window.ipcRenderer.invoke("drive-remove-permission", server.id, permissionId);
+            const result = await window.ipcRenderer.invoke("drive-remove-permission", server.id, permissionId, false);
             setLoading(prev => ({...prev, delete: false}))
             if (!result.success) 
                 alert(result.error);
             else
-                loadServers();
+                await loadServers();
         }
     
     }
@@ -132,6 +132,12 @@ export default function ServerSlot({ server } : Props){
         await window.ipcRenderer.invoke("set-server-path", server.id);
         setLoading(prev => ({...prev, path: false}))
         await loadServers();
+    }
+
+    function handleType(e){
+        const newValue = e.target.value
+        if (newValue.length < nameBuffer.length || inputRef.current?.getBoundingClientRect().width < 220)
+            setNameBuffer(newValue)
     }
 
     useEffect(() => {
@@ -151,37 +157,32 @@ export default function ServerSlot({ server } : Props){
             {popup}
             <span className='first-row'>
                 <span className='list-text'>
-
-                    <span className='server-name'>
-                        <input type="text"
+                    <input type="text"
                         ref={inputRef}
                         className='name-input'
                         value={nameBuffer}
-                        size={nameBuffer.length || 1}
                         readOnly = {!isEditing}
-                        onChange={ (e) => setNameBuffer(e.target.value)}/>
-                        {isEditing
-                            ?
-                            <button className='edit-button' onClick={handleEdit} disabled={loading.edit}>
-                                {loading.edit 
-                                    ?
-                                    <Loader2 size={12} className='spinner'/>
-                                    :
-                                    <Save size={12}/>
-                                }
-                            </button>
-                            :
-                            <button className='edit-button' onClick={()=>{
-                                setIsEditing(true)
-                                setTimeout(() => inputRef.current?.focus(), 0);
-                            }}>
-                                <Pencil size={12}/>
-                            </button>
-                        }
-                        
-                    </span>
-                
-                    
+                        onChange={ (e) => handleType(e)}
+                        style={{ width: `${nameBuffer.length}ch`}}
+                    />
+                    {isEditing
+                        ?
+                        <button className='edit-button' onClick={handleEdit} disabled={loading.edit}>
+                            {loading.edit 
+                                ?
+                                <Loader2 size={12} className='spinner'/>
+                                :
+                                <Save size={12}/>
+                            }
+                        </button>
+                        :
+                        <button className='edit-button' onClick={()=>{
+                            setIsEditing(true)
+                            setTimeout(() => inputRef.current?.focus(), 0);
+                        }}>
+                            <Pencil size={12}/>
+                        </button>
+                    }
                 </span>
 
                 <span className='button-span'>

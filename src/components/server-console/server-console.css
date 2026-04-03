@@ -34,6 +34,7 @@
     line-height: 1.6;
     white-space: pre-wrap;
     word-break: break-all;
+    user-select: text;
 }
 
 .log-line.info    { color: #c8c8c8; }

@@ -1,8 +1,8 @@
 import { OAuth2Client } from "google-auth-library";
-import { getUserInfo } from "./googleAuthService";
+import { getUserInfo, refreshIfNeeded, getOAuthClient, authorizedFetch, } from "./googleAuthService";
 import { IStartupOptions, ILockStatus } from "../../src/lib/types";
 import { launchPlayitgg, waitForPlayitLink, killPlayitgg } from "./childrenProcesses";
-import { syncServer, refreshIfNeeded, getOAuthClient, authorizedFetch, uploadServerFolder } from './googleDriveService'
+import { syncServer, uploadServerFolder } from './googleDriveService'
 import fs from "fs";
 import path from "path";
 

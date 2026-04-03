@@ -8,42 +8,55 @@ import { useServerStore } from '../../store/store.ts';
 export default function OwnedDriveFolders(){
 
     const { servers, loadingServers, loadServers } = useServerStore();
-
     const {confirm, popup} = useConfirm();
-
     const maxSlots:number = 3;
+    const [loadingCreate,setLoadingCreate] = useState(false);
 
-    const [loadingCreate,setLoadingCreate] = useState<string | null>(null);
+    async function handleCreate(){
 
-
-    async function handleCreate(key:string){
-
-        const accepted = await confirm({
+        const acceptedCreate = await confirm({
             message:"Do you want to create a new shared folder in your Google Drive?",
             confirmText:"Yes",
             cancelText:"No"
         })
 
-        if(!accepted)
+        if(!acceptedCreate)
             return;
 
-        setLoadingCreate(key)
+        setLoadingCreate(true)
         const result = await window.ipcRenderer.invoke("drive-create-server");
-        setLoadingCreate(null)
-        if (!result.success)
+        
+        if (!result.success) {
             alert(result.error);
-        else 
-            alert("Server created!");
+            setLoadingCreate(false)
+            return
+        }
 
-        loadServers();
+        const acceptPath = await confirm({
+            message: `Choose the local folder path for your server. The files will be downloaded to and uploaded from here.`,
+            confirmText:"Proceed",
+            cancelText:"Cancel"
+        })
+
+        if (!acceptPath) {
+            alert("Created Server Folder! Please set the path later if you want to work with it.");
+            setLoadingCreate(false)
+            await loadServers();
+            return
+        }
+
+        await window.ipcRenderer.invoke("set-server-path", result.folderId);
+        
+        setLoadingCreate(false)
+        alert("Created Server Folder!");
+        await loadServers();
     }
-
 
     return(
         <div className='owned-drive-wrapper'>
             {popup}
 
-            {!servers.length  && <h4>Start by creating your first server folder.</h4>}
+            {!servers.length  && <h3>Start by creating your first server folder.</h3>}
             {loadingServers  
                 ? <span id='loading-span'>
                     <Loader2 size={24} className='spinner'/>
@@ -69,9 +82,9 @@ export default function OwnedDriveFolders(){
                                     <button 
                                     className='list-button'
                                     style={{backgroundColor:"rgb(10, 30, 10)"}}
-                                    disabled={loadingCreate === `ghost-${index}`}
-                                    onClick={()=> handleCreate(`ghost-${index}`)}>
-                                        {loadingCreate === `ghost-${index}` && <Loader2 size={12} className='spinner'/>}
+                                    disabled={loadingCreate}
+                                    onClick={handleCreate}>
+                                        {loadingCreate && <Loader2 size={12} className='spinner'/>}
                                         Create Server
                                     </button>
                                 </span>

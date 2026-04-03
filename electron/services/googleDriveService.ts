@@ -1,100 +1,12 @@
-import { app } from "electron";
 import path from "path";
 import fs from "fs";
 import { OAuth2Client } from "google-auth-library";
-import { addJoinedServer, getJoinedServerIds, getServerPath } from "./localServerStore";
-
+import { addJoinedServer, removeJoinedServer, getJoinedServerIds, getServerPath, removeServerPath } from "./localServerStore";
+import { getOAuthClient, refreshIfNeeded, authorizedFetch, debugUser } from "./googleAuthService";
 
 const DRIVE_BASE_URL = "https://www.googleapis.com/drive/v3/files";
 const ROOT_FOLDER_NAME = "Minecraft Shared Servers";
 const MAX_SERVERS = 3;
-
-function getTokenPath() {
-	return path.join(app.getPath("userData"), "token.json");
-}
-
-function getCredentialsPath() {
-	return path.join(process.cwd(), "config", "client_secret.json");
-}
-
-export function getOAuthClient(): OAuth2Client {
-	const tokens = JSON.parse(
-		fs.readFileSync(getTokenPath(), "utf-8")
-	);
-
-	const credentials = JSON.parse(
-		fs.readFileSync(getCredentialsPath(), "utf-8")
-	);
-
-	const { client_id, client_secret } = credentials.installed;
-
-	const client = new OAuth2Client(client_id, client_secret);
-
-	client.setCredentials(tokens);
-
-	return client;
-}
-
-export async function refreshIfNeeded(client: OAuth2Client) {
-	const tokens = client.credentials;
-
-	if (!tokens.expiry_date || tokens.expiry_date <= Date.now()) {
-		const { credentials } = await client.refreshAccessToken();
-		client.setCredentials(credentials);
-
-		fs.writeFileSync(
-			getTokenPath(),
-			JSON.stringify(credentials, null, 2)
-		);
-	}
-}
-
-export async function authorizedFetch( 
-	client: OAuth2Client, 
-	url: string, 
-	options: RequestInit = { method: "GET" },
-	headers: Record<string, string> = { "Content-Type": "application/json" }
-) {
-	
-	await refreshIfNeeded(client);
-	const accessToken = client.credentials.access_token;
-
-	const res = await fetch(url, {
-		...options,
-		headers: {
-			Authorization: `Bearer ${accessToken}`,
-			...(options.body ? { "Content-Type": "application/json" } : {}),
-			...headers
-		}
-	});
-
-	if (!res.ok) {
-		const errorText = await res.text();
-		throw new Error(errorText);
-	}
-
-	if (res.status === 204) {
-		return null;
-	}
-
-	const text = await res.text();
-
-	if (!text) {
-		return null;
-	}
-
-	return JSON.parse(text);
-}
-
-async function debugUser(client: OAuth2Client) {
-	const res = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-		headers: {
-			Authorization: `Bearer ${client.credentials.access_token}`
-		}
-	});
-
-	return await res.json()
-}
 
 async function findRootFolder(client: OAuth2Client) { //gets the root folder's id
 	const query = `name='${ROOT_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
@@ -157,9 +69,9 @@ export async function createServerFolder() {
 
 		const newServerName = `Server-${servers.length + 1}`;
 
-		await createFolder(client, newServerName, rootId);
+		const id = await createFolder(client, newServerName, rootId);
 
-		return { success: true };
+		return { success: true, folderId: id };
 
 	} catch (err: any) {
 		return {
@@ -178,6 +90,8 @@ export async function deleteServerFolder(folderId: string) {
 		await authorizedFetch(client, url, {
 			method: "DELETE"
 		});
+
+		removeServerPath(folderId)
 
 		return { success: true };
 
@@ -609,7 +523,7 @@ export async function inviteUserToServer(serverId: string, email: string, messag
 	return { success: true };
 }
 
-export async function removeUserPermission(serverId: string, permissionId: string) {
+export async function removeUserPermission(serverId: string, permissionId: string, isOwner: boolean) {
 	const client = getOAuthClient();
 	await refreshIfNeeded(client);
 
@@ -624,6 +538,11 @@ export async function removeUserPermission(serverId: string, permissionId: strin
 			}
 		}
 	);
+
+	if(!isOwner){
+		removeJoinedServer(serverId)
+		removeServerPath(serverId)
+	}
 
 	if (!res.ok)
 		throw new Error(await res.text());
@@ -643,8 +562,11 @@ export async function joinServerById(folderId: string) {
 			{ headers: { Authorization: `Bearer ${accessToken}` } }
 		)
 
-		if (!res.ok)
+		if (!res.ok) {
+			if(res.status === 404)
+				throw new Error("File not found. Either the folder ID is wrong or you haven't been invited to this server.")
 			throw new Error(await res.text())
+		}
 
 		const data = await res.json()
 
@@ -661,7 +583,7 @@ export async function joinServerById(folderId: string) {
 			}
 		}
 	} catch (err: any) {
-		return { success: false, error: err.message }
+		return { success: false, error: err.message || err }
 	}
 }
 

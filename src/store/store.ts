@@ -53,7 +53,7 @@ interface LocalVariables{
 const useServerStore = create<ServerStore>((set,get) => ({
     servers: [],
     selectedServer: null,
-    loadingServers: false,
+    loadingServers: true,
     serversErrors: "",
     lockStatus: {
         hostName: "",
@@ -84,7 +84,8 @@ const useServerStore = create<ServerStore>((set,get) => ({
             const servers = [...owned, ...joined];
 
             set({
-                servers,
+                servers: servers,
+                selectedServer: servers[0],
                 serversErrors: (!ownedResult.success ? ownedResult.error : '') + (!joinedResult.success ? joinedResult.error : ''),
                 loadingServers: false
             });
@@ -97,7 +98,7 @@ const useUserStore = create<UserStore>((set) => ({
     userName: "", 
     userEmail: "", 
     userPicture: "",
-    loadingUser: false,
+    loadingUser: true,
     driveScopeAllowed: false,
 
     loadUser : 
@@ -108,14 +109,13 @@ const useUserStore = create<UserStore>((set) => ({
                 userName: user.name,
                 userEmail: user.email,
                 userPicture: user.picture,
-                loadingUser: false,
             });
         },
 
     checkDriveScope: 
         async function() {
             const res = await window.ipcRenderer.invoke("is-request-allowed")
-            set({driveScopeAllowed: res})
+            set({driveScopeAllowed: res, loadingUser: false})
         },
 }))
 

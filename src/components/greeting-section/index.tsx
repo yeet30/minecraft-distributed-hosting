@@ -53,7 +53,11 @@ export default function GreetingSection() {
     }, [])
 
     if (loadingUser)
-        return <h2 className="greeting-title">Loading user information...</h2>
+        return (
+            <section className="greeting-wrapper">
+                <h2 className="greeting-title">Loading user information...</h2>
+            </section>
+        )
     else if(!driveScopeAllowed)
         return (
             <section className="greeting-wrapper">

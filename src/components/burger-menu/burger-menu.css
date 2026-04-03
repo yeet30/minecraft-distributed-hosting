@@ -4,7 +4,7 @@
     #menu-clicker{
         position: absolute;
         right: 10px;
-        top: 10px;
+        top: 16px;
         border-style: solid;
         border-radius: 50px;
         border-width: 1px;
@@ -54,7 +54,7 @@
 
     #drawer{
         position: absolute;
-        top: 5px;
+        top: 11px;
         right: 5px;
         height: 55px;
         width: 100px;
@@ -73,9 +73,8 @@
     }
 
     #drawer.open {
-        border-radius: 5px;
-        border-top-left-radius: 25px;
-        border-top-right-radius: 25px;
+        border-radius: 25px;
+        border-bottom-right-radius: 10px;
         width: 200px;
         height: 250px;
         right: 5px;

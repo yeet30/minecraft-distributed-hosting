@@ -57,9 +57,8 @@ export default function SelectServer(){
             setLockStatus(lockRes.lockData)
         } catch (err) {
             console.error("Failed to get server lock:", err)
-        } finally {
-            setLoadingHosting(false)
-        }
+        } 
+        setLoadingHosting(false)
     }    
 
     useEffect(()=>{
@@ -73,7 +72,8 @@ export default function SelectServer(){
         setList(servers)
     },[servers])
 
-
+    if(!servers.length)
+        return null
     return (
         <div className="select-server-wrapper">
             <span>
@@ -88,13 +88,14 @@ export default function SelectServer(){
                 </button>
 
                 <div className={`server-drawer ${isListOpen && 'open'}`}>
-                    <span className='owned'>
-                        {list.filter((server) => server.type === "owned" ).length>0 
-                            && <span className='server-type'>
-                                Owned
+                    
+                    {list.filter((server) => server.type === "owned" ).length > 0
+                        && <span className='owned'>
+                                <span className='server-type'>
+                                        Owned
+                                </span>    
                             </span>
-                        }
-                    </span>
+                    }
                     {list.filter((server) => server.type === "owned" ).map(server => (
                         <span className='server-item' key={server.id} onClick={()=>handleSelect(server.id)}>
                             <span className='item-text'>{server.name}</span>

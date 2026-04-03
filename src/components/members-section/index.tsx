@@ -1,12 +1,22 @@
 import './members-section.css'
 import { useServerStore } from '../../store/store'
 import { useEffect, useState } from 'react'
+import { RotateCcw } from 'lucide-react'
 
 export default function MembersSection(){
 
     const { selectedServer, lockStatus } = useServerStore()
     const [maxPlayers, setMaxPlayers] = useState<number | null>(null)
     const [players, setPlayers] = useState<string[]>([]);
+
+    const [spinning, setSpinning] = useState(false);
+
+    function handleClick(){
+        setSpinning(true);
+        setTimeout(() => {
+            window.location.reload();
+        }, 400);
+    };
 
     async function getMaxPlayers(){
         if(!selectedServer) return
@@ -30,9 +40,18 @@ export default function MembersSection(){
 
 
     if(!maxPlayers)
-        return null
+        return (
+            <section className="members-section">
+                <button className='refresh-button' onClick={handleClick}>
+                    <RotateCcw className={`refresh-svg ${spinning ? "spin" : ""}`} size={24}/>
+                </button>
+            </section>
+        )
     return (
         <section className="members-section">
+            <button className='refresh-button' onClick={handleClick}>
+                <RotateCcw className={`refresh-svg ${spinning ? "spin" : ""}`} size={24}/>
+            </button>
             <div className='members-div'>
                 <h3>Online Players: <span>{players.length}/{maxPlayers}</span></h3>
                 {players.map((player, index) =>

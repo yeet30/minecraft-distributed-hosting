@@ -54,6 +54,10 @@
         border-bottom-right-radius: 15px;
     }
 
+    #modal-tabs > .tab:only-child {
+        cursor:auto;
+    }
+
     .tab:hover{
         cursor: pointer;
     }
