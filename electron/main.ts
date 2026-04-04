@@ -24,6 +24,7 @@ import { IStartupOptions } from '../src/lib/types'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const iconPath = path.join(__dirname, '../public/launcher.ico')
 
 let heartbeatInterval: NodeJS.Timeout | null = null;
 let currentHostingServerId: string | null = null;
@@ -58,7 +59,7 @@ function createWindow() {
 		resizable: false,
 		width: 800,
 		height: 600,
-		icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
+		icon: iconPath,
 		webPreferences: {
 			preload: path.join(__dirname, 'preload.mjs'),
 		},
@@ -124,7 +125,7 @@ app.on('activate', () => {
 })
 
 app.whenReady().then(() => {
-    const icon = nativeImage.createFromPath('/electron-vite.svg')
+    const icon = nativeImage.createFromPath(iconPath)
     tray = new Tray(icon)
     
     tray.setToolTip('Drive Launcher')
