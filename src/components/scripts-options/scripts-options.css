@@ -97,6 +97,7 @@
         justify-content: space-between;
         width: 100%;
         margin-top: 0.5rem;
+        padding-bottom: 2rem;
     }
 
     .ram-div{
@@ -121,6 +122,8 @@
 
     .options-div{
         overflow-y: auto;
+        display: flex;
+        flex-direction: column;
     }
 
     .save-span{

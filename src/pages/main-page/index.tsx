@@ -1,28 +1,26 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './main-page.css'
 import GreetingSection from "../../components/greeting-section"
 import BurgerMenu from '../../components/burger-menu';
 import MembersSection from '../../components/members-section';
 import { useUserStore, useServerStore, useLocalStore } from '../../store/store.ts'
+import { ILockStatus } from '../../lib/types.ts';
+import { useConfirm } from '../../hooks/useConfirm/index.tsx';
 
 export default function MainPage(){
 
     const navigate = useNavigate();
-
+    const { confirm, popup } = useConfirm();
     const { selectedServer, loadServers, setServerByIndex, setLockStatus } = useServerStore();
     const { loadUser, checkDriveScope } = useUserStore();
     const { loadLocalVariables } = useLocalStore();
+    
+    const [isQuitting, setIsQuitting] = useState(false);
 
     async function checkLoggedIn(){
         const loggedIn = await window.ipcRenderer.invoke("google-is-logged-in");
         if(!loggedIn) navigate ("/")
-    }
-
-    async function updateServerLock(){
-        if(!selectedServer) return
-        const lock = await window.ipcRenderer.invoke("get-server-lock", selectedServer.id)
-        setLockStatus(lock.lockData)
     }
 
     useEffect(() =>{
@@ -39,11 +37,44 @@ export default function MainPage(){
         init()
     },[])
 
-    useEffect(() =>{
-        window.ipcRenderer.on("lock-updated", async () => {
-            await updateServerLock()
-        });
-    },[])
+    useEffect(() => {
+        if (!selectedServer) return;
+
+        const handler = (_: unknown, lock: ILockStatus) => {
+            setLockStatus(lock);
+        };
+
+        window.ipcRenderer.on("lock-updated", handler);
+
+        return () => {
+            window.ipcRenderer.off("lock-updated", handler);
+        };
+    }, [selectedServer]);
+
+    useEffect(() => {
+        window.ipcRenderer.on('app-quitting', () => {
+            setIsQuitting(true) // triggers your overlay
+        })
+    }, [])
+
+    useEffect(() => {
+        const handler = async (_: unknown, { isHosting }: { isHosting: boolean }) => {
+            const confirmed = await confirm({
+                message: isHosting
+                    ? "You are currently hosting a server. Closing may corrupt world files if they are mid-save. Are you sure you want to quit?"
+                    : "Are you sure you want to quit?",
+                confirmText: "Quit",
+                cancelText: "Cancel"
+            });
+
+            if (confirmed) {
+                window.ipcRenderer.invoke('confirm-quit-response', true);
+            }
+        };
+
+        window.ipcRenderer.on('confirm-quit', handler);
+        return () => window.ipcRenderer.off('confirm-quit', handler);
+    }, []);
 
 
     return (
@@ -57,6 +88,14 @@ export default function MainPage(){
             <section id='menu-section'>
                 <BurgerMenu/>
             </section>
+
+            {popup}
+
+            {isQuitting && (
+                <div className='quit-overlay'>
+                    <p>Stopping server...</p>
+                </div>
+            )}
         </section>
     )
 }

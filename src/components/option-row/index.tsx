@@ -14,7 +14,7 @@ export default function OptionRow({title, enable, onChange, children}: OptionPro
         <div className='option-row-wrapper'>
 
             <label  htmlFor={`enable-check-${title}`} className={`enable-label ${enable ? "enabled" : ""}`}>
-                Enable
+                Enabled
                 <input 
                 type="checkbox"
                 name="enable-check" 

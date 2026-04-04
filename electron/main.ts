@@ -20,7 +20,7 @@ import {
 import { startServer, getServerLock, updateLockFile, stopServer, getMaxPlayers } from './services/serverService' 
 import { launchServer, getServerProcess, getPlayitggProcess, killPlayitgg, killServer } from './services/childrenProcesses'
 import { getServerPath, setServerPath, getLocalVariable, setLocalVariable } from './services/localServerStore'
-import { ILockStatus, IStartupOptions } from '../src/lib/types'
+import { IStartupOptions } from '../src/lib/types'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -28,6 +28,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 let heartbeatInterval: NodeJS.Timeout | null = null;
 let currentHostingServerId: string | null = null;
 let currentPlayers: string[] = [];
+let cleanupDone = false;
+let isQuitting = false;
 
 // The built directory structure
 //
@@ -61,6 +63,27 @@ function createWindow() {
 		},
 	})
 
+	win.on('close', (event) => {
+		if (cleanupDone) return; // cleanup done, let it close for real
+
+		event.preventDefault(); // block close in ALL other cases
+
+		if (isQuitting) {
+			// we're in quit flow, do cleanup then close
+			safeSend('app-quitting');
+			safeSend('show-progress');
+			doCleanup(); // extract cleanup into a separate function
+			return;
+		}
+
+		// manual X button click, show confirm popup
+		win!.webContents.send('confirm-quit', { isHosting: !!currentHostingServerId });
+	});
+
+	win.on('closed', () => {
+		win = null;
+	});
+
 	// Test active push message to Renderer-process.
 	win.webContents.on('did-finish-load', () => {
 		win?.webContents.send('main-process-message', (new Date).toLocaleString())
@@ -77,11 +100,14 @@ function createWindow() {
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
-	if (process.platform !== 'darwin') {
-		app.quit()
-		win = null
-	}
-})
+    console.log("window-all-closed fired, cleanupDone:", cleanupDone, "platform:", process.platform);
+    if (process.platform !== 'darwin') {
+        if (cleanupDone) {
+            app.quit();
+            win = null;
+        }
+    }
+});
 
 app.on('activate', () => {
 	// On OS X it's common to re-create a window in the app when the
@@ -91,25 +117,104 @@ app.on('activate', () => {
 	}
 })
 
-app.on('will-quit', async (event) => {
+ipcMain.handle('confirm-quit-response', (_, confirmed: boolean) => {
+    if (confirmed) {
+        isQuitting = true; // allow window to close when app.quit() triggers 'close'
+        safeSend('app-quitting');
+        safeSend('show-progress');
+        app.quit();
+    }
+});
+
+app.on('before-quit', () => {
+    console.log("before-quit fired, cleanupDone:", cleanupDone);
+});
+
+app.on('will-quit', (event) => {
+    if (!cleanupDone) event.preventDefault(); // safety net, shouldn't reach here before cleanup
+});
+
+function safeSend(channel: string, ...args: any[]) {
+    if (win && !win.isDestroyed()) {
+        win.webContents.send(channel, ...args);
+    }
+}
+
+function sendProgress(message: string, status: 'loading' | 'done' | 'error' = 'loading', importance: 'major' | 'minor' = 'minor') {
+	if (win && !win.isDestroyed()) {
+    	win?.webContents.send("startup-progress", { message, status, importance });
+	}
+}
+
+async function doCleanup() {
+    const playitggProcess = getPlayitggProcess();
+
+    if (playitggProcess) {
+        sendProgress("Closing down the playitgg client.", "loading", "major");
+        killPlayitgg();
+        sendProgress("Finished closing the playitgg client.", "done", "major");
+    }
+
+    if (currentHostingServerId) {
+        sendProgress("Closing down the server console.", "loading", "major");
+        killServer();
+        sendProgress("Finished closing down the server console.", "done", "major");
+
+        const shouldUpload = getLocalVariable("checklist").upload;
+        const stopRes = await stopServer({ shouldUpload, folderId: currentHostingServerId }, sendProgress);
+        currentHostingServerId = null;
+
+        safeSend("hide-progress");
+
+        if (!stopRes.success) {
+            await dialog.showMessageBox({
+                type: "info",
+                title: "Info",
+                message: stopRes.error,
+            });
+        }
+    }
+
+    clearInterval(heartbeatInterval!);
+    heartbeatInterval = null;
+    cleanupDone = true;
+    app.quit(); // now cleanupDone is true, close event passes through, will-quit passes through
+}
+
+ipcMain.handle("google-login", async () => {
+	return await loginWithGoogle();
+});
+
+ipcMain.handle("google-get-user", async () => {
+	return await getUserInfo(); 
+});
+
+ipcMain.handle("google-is-logged-in", () => {
+	return isAlreadyLoggedIn();
+})
+
+ipcMain.handle("google-logout", async () => {
+
+	win?.webContents.send('app-quitting')
+
 	win?.webContents.send("show-progress");
 	const playitggProcess = getPlayitggProcess()
 	let stopRes;
 
 	if(playitggProcess){
-		event.preventDefault()
 		sendProgress("Closing down the playitgg client.", "loading", "major")
 		killPlayitgg()
 		sendProgress("Finished closing the playitgg client.", "done", "major")
 	}
 
 	if (currentHostingServerId) {
-		event.preventDefault()
 		sendProgress("Closing down the server console.", "loading", "major")
 		killServer()
 		sendProgress("Finished closing down the server console.", "done", "major")
 
-		stopRes = await stopServer({ shouldUpload: true, folderId: currentHostingServerId }, sendProgress);
+		const shouldUpload = getLocalVariable("checklist").upload
+
+		stopRes = await stopServer({ shouldUpload: shouldUpload, folderId: currentHostingServerId }, sendProgress);
 		currentHostingServerId = null;
 		win?.webContents.send("hide-progress");
 		if(!stopRes.success)
@@ -122,14 +227,20 @@ app.on('will-quit', async (event) => {
 
 	clearInterval(heartbeatInterval!);
 	heartbeatInterval = null;
-	app.quit();
-});
-
-function sendProgress(message: string, status: 'loading' | 'done' | 'error' = 'loading', importance: 'major' | 'minor' = 'minor') {
-    win?.webContents.send("startup-progress", { message, status, importance });
-}
+		
+    return await logoutGoogle();
+})
 
 ipcMain.handle("start-server", async (_, options: IStartupOptions) => {
+
+	if(
+		(options.checklist.download 
+		|| options.checklist.upload 
+		|| options.checklist.serverConsole) 
+		&& !options.serverPath
+	)
+		return {success: false, error: "You need to set the server path."}
+
 
 	win?.webContents.send("show-progress");
     const result = await startServer(options, sendProgress);
@@ -190,10 +301,12 @@ ipcMain.handle("start-server", async (_, options: IStartupOptions) => {
 
     // Start heartbeat
     currentHostingServerId = options.folderId;
+
     heartbeatInterval = setInterval(async () => {
-        await updateLockFile(options.folderId, "online", currentPlayers);
+        const res = await updateLockFile(options.folderId, "online", currentPlayers);
+		if(res.success)
+			win?.webContents.send("lock-updated", res.lockData)
 		serverProcess?.stdin?.write("list\n");
-		win?.webContents.send("lock-updated")
     }, 20000);
 
 	win?.webContents.send("hide-progress");
@@ -259,53 +372,6 @@ ipcMain.handle("send-server-command", (_, command: string) => {
 
 ipcMain.handle("is-server-running", ()=>{
 	return currentHostingServerId;
-})
-
-ipcMain.handle("google-login", async () => {
-	const result = await loginWithGoogle();
-	return result;
-});
-
-ipcMain.handle("google-get-user", async () => {
-	return await getUserInfo();
-});
-
-ipcMain.handle("google-is-logged-in", () => {
-	return isAlreadyLoggedIn();
-})
-
-ipcMain.handle("google-logout", async () => {
-
-	win?.webContents.send("show-progress");
-	const playitggProcess = getPlayitggProcess()
-	let stopRes;
-
-	if(playitggProcess){
-		sendProgress("Closing down the playitgg client.", "loading", "major")
-		killPlayitgg()
-		sendProgress("Finished closing the playitgg client.", "done", "major")
-	}
-
-	if (currentHostingServerId) {
-		sendProgress("Closing down the server console.", "loading", "major")
-		killServer()
-		sendProgress("Finished closing down the server console.", "done", "major")
-
-		stopRes = await stopServer({ shouldUpload: true, folderId: currentHostingServerId }, sendProgress);
-		currentHostingServerId = null;
-		win?.webContents.send("hide-progress");
-		if(!stopRes.success)
-			dialog.showMessageBox({
-				type: "info",
-				title: "Info",
-				message: stopRes.error,
-			});
-    }
-
-	clearInterval(heartbeatInterval!);
-	heartbeatInterval = null;
-		
-    return await logoutGoogle();
 })
 
 ipcMain.handle("drive-create-server", async () => {
@@ -388,7 +454,7 @@ ipcMain.handle("rename-server", async (_, folderId, newName) => {
 	return await renameServerFolder(folderId, newName);
 });
 
-ipcMain.handle("get-server-lock", async (_, folderId): Promise<{ lockData: ILockStatus; lockFileId: string }> => {
+ipcMain.handle("get-server-lock", async (_, folderId) => {
 	return await getServerLock(folderId);
 });
 

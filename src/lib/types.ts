@@ -27,7 +27,8 @@ export interface ILockStatus {
     publicIp: string;
     startedAt: string;
     expiresAt: string;
-    status: "starting" | "online" | "stopping" | "offline" 
+    status: "starting" | "online" | "stopping" | "offline",
+    onlinePlayers?: string[]
 };
 
 export interface ILocalVariables{

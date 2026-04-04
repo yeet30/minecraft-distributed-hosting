@@ -1,6 +1,6 @@
 import { OAuth2Client } from "google-auth-library";
 import { getUserInfo, refreshIfNeeded, getOAuthClient, authorizedFetch, } from "./googleAuthService";
-import { IStartupOptions, ILockStatus } from "../../src/lib/types";
+import { IStartupOptions } from "../../src/lib/types";
 import { launchPlayitgg, waitForPlayitLink, killPlayitgg } from "./childrenProcesses";
 import { syncServer, uploadServerFolder } from './googleDriveService'
 import fs from "fs";
@@ -9,6 +9,8 @@ import path from "path";
 const DRIVE_BASE_URL = "https://www.googleapis.com/drive/v3/files";
 
 let publicIp = ""
+let lockInitializing = false;
+let serverStartedAt: string | null = null
 
 export async function startServer(
 	options: IStartupOptions, 
@@ -43,7 +45,6 @@ export async function startServer(
 	let syncRes, ip;
 
     // Run file sync and wait for playit link at the same time depending on the options
-
 	if(options.checklist.download && options.checklist.playitgg){
 		onProgress("Waiting for the ip from the playit.gg client.", "loading", "minor");
 		[syncRes, ip] = await Promise.all([
@@ -76,6 +77,8 @@ export async function startServer(
         killPlayitgg();
         return { success: false, error: syncRes.error };
     }
+
+	serverStartedAt = new Date().toISOString();
 
     // 4. Update lock with public IP and running status
 	onProgress("Uploading the lock to the drive.", "loading", "major")
@@ -115,8 +118,8 @@ async function uploadLockFile(
 	]);
 
 	const url = existingLockId
-		? `https://www.googleapis.com/upload/drive/v3/files/${existingLockId}?uploadType=multipart`
-        : `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`; //If lock exists, PATCH it
+		? `https://www.googleapis.com/upload/drive/v3/files/${existingLockId}?uploadType=multipart&fields=id`
+        : `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id`; //If lock exists, PATCH it
 
 	
 	const res = await fetch(url, {
@@ -128,16 +131,28 @@ async function uploadLockFile(
         body
     });
 
-	if(!res.ok) {
-		const text = await res.text()
-		console.error(text)
-		throw new Error(text)
-	}
+	if(!res.ok)
+		return {
+			success: false,
+			error: await res.text()
+		}
 
-	return await res.json()
+	const data = await res.json();
+	const fileId = data.id;
+
+	return  {
+		success: true,
+		lockData: content,
+		lockFileId: fileId
+	}
 }
 
-export async function updateLockFile(folderId: string, status: "starting" | "online" | "stopping" | "offline", players?: string[] ){
+export async function updateLockFile(
+	folderId: string, 
+	status: "starting" | "online" | "stopping" | "offline", 
+	players?: string[],
+
+){
 	const client = getOAuthClient();
 
 	const query = `'${folderId}' in parents and name='lock.json' and trashed=false`;
@@ -151,7 +166,7 @@ export async function updateLockFile(folderId: string, status: "starting" | "onl
 	let content = {
 		hostName: user.name,
 		hostEmail: user.email,
-		startedAt: new Date(Date.now()).toISOString(),
+		startedAt: serverStartedAt ?? new Date().toISOString(),
 		expiresAt: new Date(Date.now() + 30000).toISOString(),
 		publicIp: publicIp ?? "",
 		status: status,
@@ -164,10 +179,25 @@ export async function updateLockFile(folderId: string, status: "starting" | "onl
 			expiresAt: new Date(Date.now() + 60000).toISOString(), // 60s grace period for startup
 		};
 
-	await uploadLockFile(client, content, folderId, existingLockId)
+	const res = await uploadLockFile(client, content, folderId, existingLockId)
+
+	if(!res.success)
+		return {
+			success: false,
+			error: res.error
+		}
+	
+	return {
+		success: true,
+		lockData: res.lockData,
+		lockFileId: res.lockFileId
+	}
 }
 
-export async function getServerLock(folderId: string): Promise<{ lockData: ILockStatus; lockFileId: string }>{
+export async function getServerLock(folderId: string){
+
+	if (lockInitializing) return { success: false, error: "Lock init in progress" };
+
 	const client = getOAuthClient();
 
 	const query = `'${folderId}' in parents and name='lock.json' and trashed=false`;
@@ -175,16 +205,23 @@ export async function getServerLock(folderId: string): Promise<{ lockData: ILock
     const data = await authorizedFetch(client, url);
 
     if (!data.files || data.files.length === 0) {
-		await updateLockFile(folderId, "offline");
-		const newData = await authorizedFetch(client, url);
-		const lockFileId = newData.files[0].id;
-		const lockData = await authorizedFetch(
-			client,
-			`${DRIVE_BASE_URL}/${lockFileId}?alt=media`,
-			{ method: "GET" },
-			{}
-		);
-		return JSON.parse(JSON.stringify({ lockData, lockFileId }));
+		lockInitializing = true;
+		try {
+			const res = await updateLockFile(folderId, "offline");
+			if(!res.success)
+				return {
+					success: false,
+					error: res.error
+				}
+			return {
+				success: true,
+				lockData: res.lockData,
+				lockFileId: res.lockFileId
+			}
+		}
+		finally {
+			lockInitializing = false;
+		}
 	}
 
 	const lockFileId = data.files[0].id
@@ -199,10 +236,21 @@ export async function getServerLock(folderId: string): Promise<{ lockData: ILock
 	const expiresAt = new Date(lockData.expiresAt);
 
 	if (now > expiresAt){
-		await updateLockFile(folderId, "offline");
+		const expRes = await updateLockFile(folderId, "offline");
+		if(!expRes.success)
+			return {
+				success: false,
+				error: expRes.error
+			}
+		return {
+			success: true,
+			lockData: expRes.lockData,
+			lockFileId: expRes.lockFileId
+		}
 	}
 
-	return  { 
+	return  {
+		success: true,
 		lockData: lockData, 
 		lockFileId: lockFileId
 	}
@@ -236,6 +284,7 @@ export async function stopServer(
 		await updateLockFile(folderId, "stopping")
 
 		if(shouldUpload) {
+
 			onProgress("Uploading the server files to the drive...", "loading", "major")
 			const uploadRes = await uploadServerFolder(folderId, onProgress)
 			onProgress("Done uploading the files", "done", "major")
@@ -247,8 +296,8 @@ export async function stopServer(
 				}
 		}
 		
-		await updateLockFile(folderId, "offline");
-		lockRes = await getServerLock(folderId)
+		serverStartedAt = null
+		lockRes = await updateLockFile(folderId, "offline");
 		
 		return { 
 			success: true, 

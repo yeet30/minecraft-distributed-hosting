@@ -5,6 +5,8 @@ import http from "http";
 import url from "url";
 import { OAuth2Client } from "google-auth-library";
 
+let cachedUser: { name: string; email: string; picture: string} | null = null;
+
 function getTokenPath() {
 	return path.join(app.getPath("userData"), "token.json");
 }
@@ -14,21 +16,18 @@ function getCredentialsPath() {
 }
 
 export function getOAuthClient(): OAuth2Client {
-	const tokens = JSON.parse(
-		fs.readFileSync(getTokenPath(), "utf-8")
-	);
+    const credentials = JSON.parse(fs.readFileSync(getCredentialsPath(), "utf-8"));
+    const { client_id, client_secret } = credentials.installed;
+    const client = new OAuth2Client(client_id, client_secret);
 
-	const credentials = JSON.parse(
-		fs.readFileSync(getCredentialsPath(), "utf-8")
-	);
+    // Only load tokens if they exist
+    const tokenPath = getTokenPath();
+    if (fs.existsSync(tokenPath)) {
+        const tokens = JSON.parse(fs.readFileSync(tokenPath, "utf-8"));
+        client.setCredentials(tokens);
+    }
 
-	const { client_id, client_secret } = credentials.installed;
-
-	const client = new OAuth2Client(client_id, client_secret);
-
-	client.setCredentials(tokens);
-
-	return client;
+    return client;
 }
 
 export async function refreshIfNeeded(client: OAuth2Client) {
@@ -47,61 +46,51 @@ export async function refreshIfNeeded(client: OAuth2Client) {
 }
 
 export async function loginWithGoogle(): Promise<{ success: boolean, error?: string }> {
+    const credentials = JSON.parse(fs.readFileSync(getCredentialsPath(), "utf-8"));
+    const { client_id, client_secret } = credentials.installed;
+    const oauth2Client = new OAuth2Client( client_id, client_secret, "http://localhost:3000");
 
-	const oauth2Client = getOAuthClient();
 
-	//Create temporary server
-	return new Promise((resolve => {
-		const server = http.createServer(async (req, res) => {
-			try {
-				if (!req.url) 
-					return;
-				
-				const query = url.parse(req.url, true).query;
-				const code = query.code as string;
+    return new Promise((resolve) => {
+        const server = http.createServer(async (req, res) => {
+            try {
+                if (!req.url) return;
 
-				if (!code) {
-					res.end();
-					return;
-				}
+                const query = url.parse(req.url, true).query;
+                const code = query.code as string;
 
-				res.end("Login successful. You can close this tab.");
-				server.close();
+                if (!code) { res.end(); return; }
 
-				//Exchange code for token
-				const { tokens } = await oauth2Client.getToken(code);
-				oauth2Client.setCredentials(tokens);
+                res.end("Login successful. You can close this tab.");
+                server.close();
 
-				//Save token
-				const tokenPath = path.join( app.getPath("userData"), "token.json" );
-				fs.writeFileSync( tokenPath, JSON.stringify(tokens));
-				console.log("TOKEN SAVED:", tokenPath);
+                const { tokens } = await oauth2Client.getToken(code);
+                oauth2Client.setCredentials(tokens);
 
-				resolve({ success: true })
-			}
-			catch (err: any) {
-				resolve({
-					success: false,
-					error: err.message
-				})
-			}
-		});
+                fs.writeFileSync(getTokenPath(), JSON.stringify(tokens));
+                console.log("TOKEN SAVED:", getTokenPath());
 
-		//Start server
-		server.listen(3000);
+                resolve({ success: true });
+            } catch (err: any) {
+                resolve({ success: false, error: err.message });
+            }
+        });
 
-		//Open browser
-		const authUrl = oauth2Client.generateAuthUrl({
-			access_type: "offline",
-			scope: [
-				"https://www.googleapis.com/auth/drive.file",
-				"https://www.googleapis.com/auth/userinfo.profile",
-				"https://www.googleapis.com/auth/userinfo.email"
-			]
-		});
+        server.listen(3000);
 
-		shell.openExternal(authUrl);
-	}));
+        const authUrl = oauth2Client.generateAuthUrl({
+            access_type: "offline",
+			prompt: "select_account consent",
+			redirect_uri: "http://localhost:3000",
+            scope: [
+                "https://www.googleapis.com/auth/drive.file",
+                "https://www.googleapis.com/auth/userinfo.profile",
+                "https://www.googleapis.com/auth/userinfo.email"
+            ]
+        });
+
+        shell.openExternal(authUrl);
+    });
 }
 
 export async function authorizedFetch( 
@@ -152,6 +141,10 @@ export async function debugUser(client: OAuth2Client) {
 }
 
 export async function getUserInfo() {
+
+	if(cachedUser)
+		return cachedUser
+
 	const oauth2Client = getOAuthClient()
 	await refreshIfNeeded(oauth2Client)
 	const accessToken = oauth2Client.credentials.access_token;
@@ -172,18 +165,17 @@ export async function getUserInfo() {
         throw new Error("Empty userinfo response");
     }
 
-	return {
+	cachedUser = {
 		name: data.name,
 		email: data.email,
 		picture: data.picture
 	}
+
+	return cachedUser;
 }
 
 export function isAlreadyLoggedIn() {
-	const tokenPath = path.join(
-		app.getPath("userData"),
-		"token.json"
-	);
+	const tokenPath = path.join( app.getPath("userData"), "token.json");
 
 	return fs.existsSync(tokenPath);
 }

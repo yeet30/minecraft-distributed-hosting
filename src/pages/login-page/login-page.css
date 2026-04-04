@@ -5,6 +5,7 @@
     align-items: center;
     gap: 5rem;
     width: 100%;
+    padding-top: 2rem;
 }
 
 #login-title {

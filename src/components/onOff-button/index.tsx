@@ -79,6 +79,8 @@ export default function OnOffButton() {
             alert(result.error)
             return
         }
+
+        alert("Server has been started!")
         setLockStatus(result.lockStatus)
     }
 
@@ -106,17 +108,17 @@ export default function OnOffButton() {
     }
 
     if (loadingServers) return (
-        <div>
-            <h2>Loading Servers...</h2>
+        <div className='loading-div'>
+            <h2><Loader2 size={32} className='spinner'/> Loading Servers...</h2>
         </div>
     )
     if (!servers.length) return (
         <div className='initial-buttons-section'>
 
             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} items={[{
-                title: "Join Server",
-                content: <JoinServer />
-            }
+                    title: "Join Server",
+                    content: <JoinServer />
+                }
             ]}
             />
             {popup}
@@ -152,6 +154,7 @@ export default function OnOffButton() {
                 ?
                 <button
                     className='onOff-button'
+                    title="Stop the server"
                     onClick={handleStop}
                     disabled={lockStatus.hostEmail !== userEmail || loadingServers}>
                     {loadingButton.onOff || loadingServers
@@ -162,6 +165,7 @@ export default function OnOffButton() {
                 :
                 <button
                     className='onOff-button'
+                    title="Start the server"
                     onClick={handleStart}
                     disabled={loadingButton.onOff || loadingServers}>
                     {loadingButton.onOff || loadingServers

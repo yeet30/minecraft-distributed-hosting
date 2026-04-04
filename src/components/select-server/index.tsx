@@ -50,7 +50,7 @@ export default function SelectServer(){
     }
 
     async function handleLock(){
-        if (loadingServers || !selectedServer?.id) return
+        if (loadingServers || !selectedServer || !selectedServer.id) return
         setLoadingHosting(true)
         try {
             const lockRes = await window.ipcRenderer.invoke("get-server-lock", selectedServer.id)
@@ -80,7 +80,7 @@ export default function SelectServer(){
                 <button className={`select-button ${isListOpen && 'open'}`} onClick={handleButton}>
                     <span className='button-title'>
                         {(loadingServers || loadingHosting)
-                            ? <p><Loader2 size={12} className='spinner'/> Loading</p>
+                            ? <p><Loader2 size={12} className='spinner'/> Checking</p>
                             : serverDisplay
                         }
                     </span>

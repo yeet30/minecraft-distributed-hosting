@@ -134,9 +134,9 @@ export default function ServerSlot({ server } : Props){
         await loadServers();
     }
 
-    function handleType(e){
-        const newValue = e.target.value
-        if (newValue.length < nameBuffer.length || inputRef.current?.getBoundingClientRect().width < 220)
+    function handleType(e: React.ChangeEvent<HTMLInputElement>) {
+        const newValue = e.currentTarget.value
+        if ( inputRef.current && (newValue.length < nameBuffer.length || inputRef.current?.getBoundingClientRect().width < 220))
             setNameBuffer(newValue)
     }
 
