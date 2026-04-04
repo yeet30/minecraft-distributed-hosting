@@ -12,7 +12,7 @@ function getTokenPath() {
 }
 
 function getCredentialsPath() {
-	return path.join(process.cwd(), "config", "client_secret.json");
+  return path.join(app.getAppPath(), 'config', 'client_secret.json')
 }
 
 export function getOAuthClient(): OAuth2Client {
