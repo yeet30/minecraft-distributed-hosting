@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell, Menu } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell, Menu, Tray, nativeImage  } from 'electron'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
@@ -50,6 +50,7 @@ export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 'public') : RENDERER_DIST
 
 let win: BrowserWindow | null
+let tray: Tray | null = null;
 Menu.setApplicationMenu(null)
 
 function createWindow() {
@@ -61,6 +62,11 @@ function createWindow() {
 		webPreferences: {
 			preload: path.join(__dirname, 'preload.mjs'),
 		},
+	})
+
+	win.on('minimize', (event: Event) => {
+		event.preventDefault()
+		win?.hide()
 	})
 
 	win.on('close', (event) => {
@@ -117,6 +123,30 @@ app.on('activate', () => {
 	}
 })
 
+app.whenReady().then(() => {
+    const icon = nativeImage.createFromPath('/electron-vite.svg')
+    tray = new Tray(icon)
+    
+    tray.setToolTip('Drive Launcher')
+    tray.setContextMenu(Menu.buildFromTemplate([
+        { label: 'Open', click: () => win?.show() },
+        { label: 'Quit', click: () => app.quit() }
+    ]))
+
+    tray.on('click', () => {
+        win?.show()
+    })
+})
+
+app.on('before-quit', () => {
+	win?.show()
+    console.log("before-quit fired, cleanupDone:", cleanupDone);
+});
+
+app.on('will-quit', (event) => {
+    if (!cleanupDone) event.preventDefault(); // safety net, shouldn't reach here before cleanup
+});
+
 ipcMain.handle('confirm-quit-response', (_, confirmed: boolean) => {
     if (confirmed) {
         isQuitting = true; // allow window to close when app.quit() triggers 'close'
@@ -124,14 +154,6 @@ ipcMain.handle('confirm-quit-response', (_, confirmed: boolean) => {
         safeSend('show-progress');
         app.quit();
     }
-});
-
-app.on('before-quit', () => {
-    console.log("before-quit fired, cleanupDone:", cleanupDone);
-});
-
-app.on('will-quit', (event) => {
-    if (!cleanupDone) event.preventDefault(); // safety net, shouldn't reach here before cleanup
 });
 
 function safeSend(channel: string, ...args: any[]) {
