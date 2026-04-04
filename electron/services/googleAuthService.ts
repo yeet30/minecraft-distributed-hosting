@@ -229,7 +229,7 @@ export function isRequestAllowed(): boolean { // Check if drive scope is already
 
 export async function requestDriveScope(): Promise<{ success: boolean, error?: string }> {
 
-	const credentialsPath = path.join(process.cwd(), "config", "client_secret.json");
+	const credentialsPath = path.join(app.getAppPath(), "config", "client_secret.json");
 	const credentials = JSON.parse(fs.readFileSync(credentialsPath, "utf-8"));
 	const { client_id, client_secret } = credentials.installed;
 

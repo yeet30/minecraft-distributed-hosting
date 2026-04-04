@@ -1,5 +1,4 @@
 import { app, BrowserWindow, ipcMain, dialog, shell, Menu, Tray, nativeImage  } from 'electron'
-import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { ILocalVariables } from '../src/lib/types'
@@ -22,7 +21,6 @@ import { launchServer, getServerProcess, getPlayitggProcess, killPlayitgg, killS
 import { getServerPath, setServerPath, getLocalVariable, setLocalVariable } from './services/localServerStore'
 import { IStartupOptions } from '../src/lib/types'
 
-const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const iconPath = path.join(__dirname, '../public/launcher.ico')
 
@@ -66,24 +64,30 @@ function createWindow() {
 	})
 
 	win.on('minimize', (event: Event) => {
+		if (isQuitting || cleanupDone) return
 		event.preventDefault()
 		win?.hide()
 	})
 
 	win.on('close', (event) => {
-		if (cleanupDone) return; // cleanup done, let it close for real
-
-		event.preventDefault(); // block close in ALL other cases
+		if (cleanupDone) return;
+		event.preventDefault();
 
 		if (isQuitting) {
-			// we're in quit flow, do cleanup then close
-			safeSend('app-quitting');
-			safeSend('show-progress');
-			doCleanup(); // extract cleanup into a separate function
+			const hasAnythingToCleanup = !!getPlayitggProcess() || !!currentHostingServerId;
+			if (hasAnythingToCleanup) {
+				win?.show(); 
+				safeSend('app-quitting');
+				safeSend('show-progress');
+				doCleanup();
+			} else {
+				cleanupDone = true;
+				win?.show(); 
+				app.quit();
+			}
 			return;
 		}
 
-		// manual X button click, show confirm popup
 		win!.webContents.send('confirm-quit', { isHosting: !!currentHostingServerId });
 	});
 
@@ -107,12 +111,11 @@ function createWindow() {
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
-    console.log("window-all-closed fired, cleanupDone:", cleanupDone, "platform:", process.platform);
     if (process.platform !== 'darwin') {
         if (cleanupDone) {
             app.quit();
             win = null;
-        }
+		}
     }
 });
 
@@ -131,7 +134,10 @@ app.whenReady().then(() => {
     tray.setToolTip('Drive Launcher')
     tray.setContextMenu(Menu.buildFromTemplate([
         { label: 'Open', click: () => win?.show() },
-        { label: 'Quit', click: () => app.quit() }
+        { label: 'Quit', click: () => {
+			win?.show(); // show window first so confirm popup is visible
+			win?.webContents.send('confirm-quit', { isHosting: !!currentHostingServerId });
+		}}
     ]))
 
     tray.on('click', () => {
@@ -140,20 +146,17 @@ app.whenReady().then(() => {
 })
 
 app.on('before-quit', () => {
-	win?.show()
     console.log("before-quit fired, cleanupDone:", cleanupDone);
 });
 
 app.on('will-quit', (event) => {
-    if (!cleanupDone) event.preventDefault(); // safety net, shouldn't reach here before cleanup
+    if (!cleanupDone) {event.preventDefault();} // safety net, shouldn't reach here before cleanup
 });
 
 ipcMain.handle('confirm-quit-response', (_, confirmed: boolean) => {
     if (confirmed) {
-        isQuitting = true; // allow window to close when app.quit() triggers 'close'
-        safeSend('app-quitting');
-        safeSend('show-progress');
-        app.quit();
+        isQuitting = true;
+        win?.close();
     }
 });
 
@@ -201,7 +204,7 @@ async function doCleanup() {
     clearInterval(heartbeatInterval!);
     heartbeatInterval = null;
     cleanupDone = true;
-    app.quit(); // now cleanupDone is true, close event passes through, will-quit passes through
+    app.quit();
 }
 
 ipcMain.handle("google-login", async () => {

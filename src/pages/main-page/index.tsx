@@ -53,7 +53,7 @@ export default function MainPage(){
 
     useEffect(() => {
         window.ipcRenderer.on('app-quitting', () => {
-            setIsQuitting(true) // triggers your overlay
+            setIsQuitting(true)
         })
     }, [])
 
@@ -61,7 +61,7 @@ export default function MainPage(){
         const handler = async (_: unknown, { isHosting }: { isHosting: boolean }) => {
             const confirmed = await confirm({
                 message: isHosting
-                    ? "You are currently hosting a server. Closing may corrupt world files if they are mid-save. Are you sure you want to quit?"
+                    ? "You are currently hosting a server. Closing will stop the server and upload all files to the cloud. This may take a moment."
                     : "Are you sure you want to quit?",
                 confirmText: "Quit",
                 cancelText: "Cancel"
