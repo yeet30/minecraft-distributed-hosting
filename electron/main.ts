@@ -50,7 +50,7 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 
 
 let win: BrowserWindow | null
 let tray: Tray | null = null;
-Menu.setApplicationMenu(null)
+//Menu.setApplicationMenu(null)
 
 function createWindow() {
 	win = new BrowserWindow({
@@ -173,6 +173,33 @@ function sendProgress(message: string, status: 'loading' | 'done' | 'error' = 'l
 	}
 }
 
+async function handleServerStop() {
+    if (!currentHostingServerId) return null;
+
+    win?.webContents.send("show-progress");
+    const playitggProcess = getPlayitggProcess()
+
+    if(playitggProcess){
+        sendProgress("Closing down the playitgg client.", "loading", "major")
+        killPlayitgg()
+        sendProgress("Finished closing the playitgg client.", "done", "major")
+    }
+
+    clearInterval(heartbeatInterval!);
+
+    const shouldUpload = getLocalVariable("checklist").upload
+    const stopRes = await stopServer({ shouldUpload: shouldUpload, folderId: currentHostingServerId }, sendProgress);
+
+    heartbeatInterval = null;
+    currentHostingServerId = null;
+    currentPlayers = [];
+
+    win?.webContents.send("hide-progress");
+    win?.webContents.send("server-stopped");
+
+    return stopRes;
+}
+
 async function doCleanup() {
     const playitggProcess = getPlayitggProcess();
 
@@ -281,37 +308,33 @@ ipcMain.handle("start-server", async (_, options: IStartupOptions) => {
 
     // Launch the actual MC server process
 	if(options.checklist.serverConsole){
-		launchRes = launchServer(options.serverPath, options.RAMoptions);
+		win?.webContents.send("server-started");
+		launchRes = launchServer(options.serverPath, options.RAMoptions, (msg) => {
+			win?.webContents.send("server-output", msg)
+		});
+
 		if (!launchRes.success) {
 			await stopServer({ shouldUpload: false, folderId: options.folderId }, sendProgress);
-			win?.webContents.send("server-stopped");
-			return {
-				success: false, 
-				error: launchRes.error
-			}
+			win?.webContents.send("server-output", `\n[System] Failed to start: ${launchRes.error}\n`);
+			return { success: false, error: launchRes.error }
 		}
 		serverProcess = launchRes.process!
 
-		// Stream server output to renderer
-		win?.webContents.send("server-started");
 		serverProcess.stdout?.on("data", (data) => {
 			const text = data.toString();
-
-			// Parse player list silently
 			const listMatch = text.match(/There are \d+ of a max of \d+ players online: ?(.*)/);
 			if (listMatch) {
 				currentPlayers = listMatch[1] ? listMatch[1].split(", ").filter(Boolean) : [];
 			} else {
-				// Only forward to console if it's not the list response
 				win?.webContents.send("server-output", text);
 			}
 		});
 		serverProcess.stderr?.on("data", (data) => {
 			win?.webContents.send("server-output", data.toString());
 		});
-		serverProcess.on("close", (code) => {
+		serverProcess.on("close", async (code) => {
 			win?.webContents.send("server-output", `\n[System] Server exited with code ${code}\n`);
-			win?.webContents.send("server-stopped");
+			await handleServerStop();
 		});
 	}
 
@@ -346,45 +369,18 @@ ipcMain.handle("get-current-players", ()=>{
 })
 
 ipcMain.handle("stop-server", async () => {
+    if(!currentHostingServerId)
+        return { success: false, error: "Server is not running." }
 
-	win?.webContents.send("show-progress");
-	const playitggProcess = getPlayitggProcess()
+    sendProgress("Closing down the server console.", "loading", "major")
+    killServer()
 
-	if(!currentHostingServerId)
-		return {
-			success: false,
-			error: "Server is not running."
-		}
+    const stopRes = await handleServerStop();
 
-	if(playitggProcess){
-		sendProgress("Closing down the playitgg client.", "loading", "major")
-		killPlayitgg()
-		sendProgress("Finished closing the playitgg client.", "done", "major")
-	}
-	sendProgress("Closing down the server console.", "loading", "major")
-	killServer()
-	sendProgress("Finished closing down the server console.", "done", "major")
+    if(!stopRes?.success)
+        return { success: false, error: stopRes?.error }
 
-    clearInterval(heartbeatInterval!);
-
-	const shouldUpload = getLocalVariable("checklist").upload
-
-	const stopRes = await stopServer({ shouldUpload: shouldUpload, folderId: currentHostingServerId }, sendProgress);
-    heartbeatInterval = null;
-    currentHostingServerId = null;
-	currentPlayers = [];
-	win?.webContents.send("hide-progress");
-
-	if(!stopRes.success){
-		return {
-			success: false,
-			error: stopRes.error
-		}
-	}
-    return {
-		success: true,
-		lockData: stopRes
-	}
+    return { success: true, lockData: stopRes }
 });
 
 ipcMain.handle("send-server-command", (_, command: string) => {
@@ -398,7 +394,7 @@ ipcMain.handle("send-server-command", (_, command: string) => {
 });
 
 ipcMain.handle("is-server-running", ()=>{
-	return currentHostingServerId;
+	return (currentHostingServerId ? true : false)
 })
 
 ipcMain.handle("drive-create-server", async () => {

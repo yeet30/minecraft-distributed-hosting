@@ -3,7 +3,6 @@
 #console-wrapper {
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
     height: 80dvh;
     width: 100%;
     background-color: rgba(10, 10, 10, 0.8);
@@ -12,6 +11,24 @@
     cursor: text;
     overflow: hidden;
     font-family: 'JetBrains Mono', monospace;
+}
+
+.console-status{
+    position: absolute;
+    display: flex;
+    align-items: center;
+    padding-left: 1rem;
+    gap: 2rem;
+    width: 66%;
+    background-color: rgba(10, 10, 10, 0.9);
+}
+
+.console-div{
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+    width: 100%;
 }
 
 #console-output {
@@ -42,6 +59,8 @@
 .log-line.error   { color: #e06c75; }
 .log-line.success { color: #98c379; }
 .log-line.system  { color: #5c6370; font-style: italic; }
+.active{ color: #98c379; }
+.inactive{ color: #e06c75; }
 
 #console-input-row {
     display: flex;

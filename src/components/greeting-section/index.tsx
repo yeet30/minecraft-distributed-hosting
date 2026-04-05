@@ -1,5 +1,5 @@
 import './greeting-section.css'
-import { useUserStore, useServerStore } from '../../store/store'
+import { useUserStore } from '../../store/store'
 import SelectServer from '../select-server';
 import { ChevronUp } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -12,7 +12,6 @@ import StartupProgress from '../startup-progress';
 export default function GreetingSection() {
 
     const { userName, loadingUser, driveScopeAllowed } = useUserStore();
-    const {serverRunning, setServerRunning} = useServerStore();
     const [notAtTop, setNotAtTop] = useState(false);
     const [showProgress, setShowProgress] = useState(true)
 
@@ -26,27 +25,10 @@ export default function GreetingSection() {
         return () => window.removeEventListener("scroll", handleScroll);
     }, []);
 
-    useEffect(()=>{
-        async function init() {
-            const isRunning = await window.ipcRenderer.invoke("is-server-running");
-            if(isRunning)
-                setServerRunning(true)
-            else
-                setServerRunning(false)
-        };
-
-        init();
-
-        window.ipcRenderer.on("server-started", () => setServerRunning(true));
-        window.ipcRenderer.on("server-stopped", () => setServerRunning(false));
-
-        window.ipcRenderer.on("show-progress", () => {
-            setShowProgress(true)
-        });
-        window.ipcRenderer.on("hide-progress", () => {
-            setShowProgress(false)
-        });
-        window.ipcRenderer.on("server-output", (_, line)=> {
+    useEffect(() => {
+        window.ipcRenderer.on("show-progress", () => setShowProgress(true));
+        window.ipcRenderer.on("hide-progress", () => setShowProgress(false));
+        window.ipcRenderer.on("server-output", (_, line) => {
             if(/Done\s*\(/.test(line))
                 setShowProgress(false)
         })
@@ -76,9 +58,8 @@ export default function GreetingSection() {
                     <div><PlayitggLink/></div>
                 </div>
             </div>
-            {serverRunning &&
-                <div className='console-section'><ServerConsole/></div>
-            }
+
+            <div className='console-section'><ServerConsole/></div>
             {notAtTop && 
                 <button 
                 className='scroller-button'

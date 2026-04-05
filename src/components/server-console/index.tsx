@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import "./server-console.css";
+import { useServerStore } from "../../store/store";
 
 type LogLine = {
     text: string;
@@ -21,6 +22,7 @@ export default function ServerConsole() {
     const [historyIndex, setHistoryIndex] = useState(-1);
     const bottomRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const {serverRunning, setServerRunning} = useServerStore();
 
     useEffect(() => {
         function handleOutput (_: any, data: string) {
@@ -44,8 +46,22 @@ export default function ServerConsole() {
         };
     }, []);
 
+    useEffect(()=> {
+        async function init() {
+            const isRunning = await window.ipcRenderer.invoke("is-server-running");
+            console.log(isRunning)
+            setServerRunning(isRunning)
+        };
+
+        init();
+
+        window.ipcRenderer.on("server-started", () => setServerRunning(true));
+        window.ipcRenderer.on("server-stopped", () => setServerRunning(false));
+    }, [])
+
     useEffect(() => {
         if(!bottomRef.current) return
+        if(lines.length === 0) return 
         bottomRef.current.scrollIntoView({ behavior: "smooth" });
     }, [lines]);
 
@@ -74,28 +90,34 @@ export default function ServerConsole() {
 
     return (
         <div id="console-wrapper" onClick={() => inputRef.current?.focus()}>
-            <div id="console-output">
-                {lines.map((line, i) => (
-                    <div key={i} className={`log-line ${line.type}`}>
-                        {line.text}
-                    </div>
-                ))}
-                <div ref={bottomRef} />
-            </div>
-            <div id="console-input-row">
-                <span id="console-prompt">&gt;</span>
-                <input
-                    ref={inputRef}
-                    id="console-input"
-                    type="text"
-                    value={input}
-                    onChange={e => setInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Enter command..."
-                    spellCheck={false}
-                    autoComplete="off"
-                />
-            </div>
+            <span className="console-status">
+                Java Console <span className={serverRunning ? "active" : "inactive"}>{serverRunning ? "● Running" : "● Offline"}</span>
+            </span>
+
+            <div className="console-div">
+                <div id="console-output">
+                    {lines.map((line, i) => (
+                        <div key={i} className={`log-line ${line.type}`}>
+                            {line.text}
+                        </div>
+                    ))}
+                    <div ref={bottomRef} />
+                </div>
+                <div id="console-input-row">
+                    <span id="console-prompt">&gt;</span>
+                    <input
+                        ref={inputRef}
+                        id="console-input"
+                        type="text"
+                        value={input}
+                        onChange={e => setInput(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Enter command..."
+                        spellCheck={false}
+                        autoComplete="off"
+                    />
+                </div>
+            </div>  
         </div>
     );
 }

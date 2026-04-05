@@ -1,6 +1,6 @@
 import './OnOff-buttons.css'
 import { Loader2, Power, Square, Plus, LogIn } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useServerStore, useUserStore, useLocalStore } from '../../store/store'
 import { useConfirm } from '../../hooks/useConfirm';
 import { IStartupOptions } from '../../lib/types';
@@ -106,6 +106,20 @@ export default function OnOffButton() {
         }
         setLockStatus(res.lockData)
     }
+
+    useEffect(() => {
+        function handleServerStopped() {
+            if (!selectedServer) return; // not ready yet, ignore
+            window.ipcRenderer.invoke("get-server-lock", selectedServer.id)
+                .then(res => setLockStatus(res.lockData))
+        }
+
+        window.ipcRenderer.on("server-stopped", handleServerStopped);
+
+        return () => {
+            window.ipcRenderer.off("server-stopped", handleServerStopped);
+        }
+    }, [selectedServer]) 
 
     if (loadingServers) return (
         <div className='loading-div'>
