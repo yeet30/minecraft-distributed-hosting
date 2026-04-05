@@ -1,5 +1,5 @@
 import './modal.css'
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { IModalItems } from '../../lib/types';
 
 interface IModal {
@@ -14,7 +14,13 @@ export default function Modal({ isOpen, onClose, items, width = 400, height = 30
 
     const [activeTab, setActiveTab] = useState(0)
 
+    useEffect(() => {
+        setActiveTab(0)
+    }, [items, isOpen])
+
     if (!isOpen) return null;
+
+    const safeIndex = activeTab < items.length ? activeTab : 0;
 
     return (
         <div className='modal-wrapper'>
@@ -38,7 +44,7 @@ export default function Modal({ isOpen, onClose, items, width = 400, height = 30
                     </div>
                     <div id='title-seperator' />
                 </div>
-                <div id='children'>{items[activeTab].content}</div>
+                <div id='children'>{items[safeIndex].content}</div>
             </div>
         </div>
     )

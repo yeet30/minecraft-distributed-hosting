@@ -17,10 +17,12 @@ export default function BurgerMenu() {
     const [isMenuOpen, setisMenuOpen] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [modalItems, setModalItems] = useState<IModalItems[]>([{
-        title: "Your Folders",
-        content: <OwnedDriveFolders/>
-    }])
+    const [modalItems, setModalItems] = useState<IModalItems[]>(
+        [{
+            title: "Your Folders",
+            content: <OwnedDriveFolders/>
+        }]
+    )
 
     async function handleLogout() {
         setLoggingOut(true)
@@ -78,9 +80,7 @@ export default function BurgerMenu() {
                     <li onClick={handleScripts}>Scripts</li>
                     <li onClick={handleDrive}>Drive Folders</li>
                     <li onClick={handleLogout}>Log Out</li>
-                    {loggingOut && (
-                        <p>Logging out...</p>
-                    )}
+                    {loggingOut && ( <p>Logging out...</p> )}
                 </ul>
             </div>
             {isMenuOpen && <div id="burger-overlay" onClick={() => setisMenuOpen(false)} />}

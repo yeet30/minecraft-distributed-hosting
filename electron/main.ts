@@ -22,7 +22,7 @@ import { getServerPath, setServerPath, getLocalVariable, setLocalVariable } from
 import { IStartupOptions } from '../src/lib/types'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const iconPath = path.join(__dirname, '../public/launcher.ico')
+const iconPath = path.join(app.getAppPath(), './public/launcher.ico')
 
 let heartbeatInterval: NodeJS.Timeout | null = null;
 let currentHostingServerId: string | null = null;
