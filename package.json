@@ -25,7 +25,13 @@
     "win": {
       "target": "nsis",
       "icon": "public/launcher.ico"
-    }
+    },
+    "extraResources": [
+      {
+        "from": "public",
+        "to": "public"
+      }
+    ]
   },
   "dependencies": {
     "googleapis": "^171.4.0",

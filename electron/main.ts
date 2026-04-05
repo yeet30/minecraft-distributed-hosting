@@ -128,8 +128,9 @@ app.on('activate', () => {
 })
 
 app.whenReady().then(() => {
-    const icon = nativeImage.createFromPath(iconPath)
-    tray = new Tray(icon)
+	const trayIconPath = path.join(process.resourcesPath, 'public/icon-16x16.png')
+	const icon = nativeImage.createFromPath(trayIconPath)
+	tray = new Tray(icon)
     
     tray.setToolTip('Drive Launcher')
     tray.setContextMenu(Menu.buildFromTemplate([
