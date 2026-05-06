@@ -3,6 +3,16 @@ import fs from "fs";
 import { OAuth2Client } from "google-auth-library";
 import { addJoinedServer, removeJoinedServer, getJoinedServerIds, getServerPath, removeServerPath } from "./localServerStore";
 import { getOAuthClient, refreshIfNeeded, authorizedFetch, debugUser } from "./googleAuthService";
+import {
+	Manifest,
+	loadLocalManifest,
+	saveLocalManifest,
+	buildInitialManifest,
+	applyWatcherChanges,
+	getManifestPath,
+} from "./manifest";
+import { getWatcherState, stopWatcher } from "./watcher";
+
 
 const DRIVE_BASE_URL = "https://www.googleapis.com/drive/v3/files";
 const ROOT_FOLDER_NAME = "Minecraft Shared Servers";
@@ -33,7 +43,7 @@ async function countServerFolders(client: OAuth2Client, rootId: string) {
 
 async function createFolder(client: OAuth2Client, name: string, parentId?: string) {
 
-	const body: any = {name, mimeType: "application/vnd.google-apps.folder"};
+	const body: any = { name, mimeType: "application/vnd.google-apps.folder" };
 
 	if (parentId)
 		body.parents = [parentId];
@@ -195,7 +205,7 @@ export async function getJoinedServers() {
 			const user = await debugUser(client)
 			const currentUserPermission = permissions.find((p: any) => p.emailAddress === user.email);
 
-			if (currentUserPermission?.role === 'owner') 
+			if (currentUserPermission?.role === 'owner')
 				return null;
 
 			return {
@@ -212,6 +222,34 @@ export async function getJoinedServers() {
 		return { success: false, error: "No joined servers found." }
 
 	return { success: true, servers: JSON.parse(JSON.stringify(servers)) };
+}
+
+function shouldDownloadFile(localPath: string, driveFile: any): boolean {
+	if (!fs.existsSync(localPath)) {
+		console.log(`DOWNLOAD: ${localPath} - file doesn't exist locally`);
+		return true;
+	}
+
+	const localStat = fs.statSync(localPath);
+
+	if (!driveFile.size) {
+		console.log(`DOWNLOAD: ${path.basename(localPath)} - no size info from Drive`);
+		return true;
+	}
+
+	if (localStat.size !== parseInt(driveFile.size)) {
+		console.log(`DOWNLOAD: ${path.basename(localPath)} - size differs: local=${localStat.size} drive=${driveFile.size}`);
+		return true;
+	}
+
+	const driveModified = new Date(driveFile.modifiedTime).getTime();
+	if (driveModified > localStat.mtimeMs) {
+		console.log(`DOWNLOAD: ${path.basename(localPath)} - drive newer: drive=${new Date(driveFile.modifiedTime).toISOString()} local=${new Date(localStat.mtimeMs).toISOString()}`);
+		return true;
+	}
+
+	console.log(`SKIP: ${path.basename(localPath)}`);
+	return false;
 }
 
 async function downloadFile(client: OAuth2Client, fileId: string) {
@@ -231,14 +269,12 @@ async function downloadFile(client: OAuth2Client, fileId: string) {
 }
 
 async function downloadFolderRecursive(
-	client: OAuth2Client, 
-	folderId: string, 
+	client: OAuth2Client,
+	folderId: string,
 	localPath: string,
-	onProgress: (message: string, status?: "error" | "loading" | "done", importance?: "major" | "minor" ) => void
+	onProgress: (message: string, status?: "error" | "loading" | "done", importance?: "major" | "minor") => void
 ) {
 	const items = await listFolderContents(client, folderId);
-
-	console.log("Items found:", items.length);
 
 	const SKIP_FILES = ["lock.json"];
 
@@ -260,7 +296,7 @@ async function downloadFolderRecursive(
 				onProgress(`Downloaded ${item.name}`, "done")
 				fs.writeFileSync(itemPath, data);
 				if (item.modifiedTime)
-    				fs.utimesSync(itemPath, new Date(item.modifiedTime), new Date(item.modifiedTime));
+					fs.utimesSync(itemPath, new Date(item.modifiedTime), new Date(item.modifiedTime));
 			} else {
 				onProgress(`Skipping unchanged file: ${item.name}`, "done")
 				console.log("Skipping unchanged file:", item.name);
@@ -269,70 +305,35 @@ async function downloadFolderRecursive(
 	}
 }
 
-export async function syncServer(
-	serverId: string,
-	onProgress: (message: string, status?: "error" | "loading" | "done", importance?: "major" | "minor") => void
-) {
-
-	console.log("Syncing folder:", serverId);
-	onProgress(`Downloading the drive folder...`, "loading", "major")
-
-	const client = getOAuthClient();
-	const targetPath = getServerPath(serverId);
-
-	if (!targetPath)
-		return { success: false, error: "No local path set." };
-
-	try {
-		if (!fs.existsSync(targetPath))
-			fs.mkdirSync(targetPath, { recursive: true });
-
-		await downloadFolderRecursive(client, serverId, targetPath, onProgress);
-		onProgress(`Drive folder downloaded.`, "done", "major")
-
-		return { success: true };
-
-	} catch (err: any) {
-		return { success: false, error: err.message };
-	}
-
-}
-
-async function uploadFile(
-	client: OAuth2Client, 
-	localFilePath: string, 
+async function uploadFileRaw(
+	client: OAuth2Client,
+	localFilePath: string,
 	parentId: string,
 	onProgress: (message: string, status?: "error" | "loading" | "done", importance?: "major" | "minor") => void
-) {
+): Promise<void> {
 	await refreshIfNeeded(client);
-
 	const accessToken = client.credentials.access_token;
 	const fileName = path.basename(localFilePath);
 	const fileBuffer = fs.readFileSync(localFilePath);
 
-	// Fetch existing file with modifiedTime and size for comparison
+	// Only need the file id, not size/modifiedTime — manifest handles change detection
 	const query = `'${parentId}' in parents and name='${fileName}' and trashed=false`;
-	const checkUrl = `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}&fields=files(id,modifiedTime,size)`;
+	const checkUrl = `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}&fields=files(id)`;
 	const checkRes = await authorizedFetch(client, checkUrl);
 	const existing = checkRes.files?.[0];
 
-	// Skip if file hasn't changed
-	if (!shouldUploadFile(localFilePath, existing)) {
-		console.log("Skipping unchanged file:", fileName);
-		onProgress(`Skipping unchanged file: ${fileName}`, "done", "minor")
-		return;
-	}
+	onProgress(`Uploading: ${fileName}`, "loading", "minor");
 
-	console.log("Uploading changed file:", fileName);
-	onProgress(`Uploading changed file: ${fileName}`, "loading", "minor")
-	const metadata = JSON.stringify({ name: fileName, parents: existing ? undefined : [parentId] });
+	const metadata = JSON.stringify({
+		name: fileName,
+		...(existing ? {} : { parents: [parentId] }),
+	});
 	const boundary = "boundary_string";
-
 	const body = Buffer.concat([
 		Buffer.from(`--${boundary}\r\nContent-Type: application/json\r\n\r\n${metadata}\r\n`),
 		Buffer.from(`--${boundary}\r\nContent-Type: application/octet-stream\r\n\r\n`),
 		fileBuffer,
-		Buffer.from(`\r\n--${boundary}--`)
+		Buffer.from(`\r\n--${boundary}--`),
 	]);
 
 	const uploadUrl = existing
@@ -343,52 +344,180 @@ async function uploadFile(
 		method: existing ? "PATCH" : "POST",
 		headers: {
 			Authorization: `Bearer ${accessToken}`,
-			"Content-Type": `multipart/related; boundary=${boundary}`
+			"Content-Type": `multipart/related; boundary=${boundary}`,
 		},
-		body
+		body,
 	});
 
-	if (!res.ok){
-		onProgress(`Could not upload file: ${fileName}`, "error", "minor")
+	if (!res.ok) {
+		onProgress(`Failed: ${fileName}`, "error", "minor");
 		throw new Error(await res.text());
 	}
-		
-	onProgress(`Done uploading: ${fileName}`, "done", "minor")
-	const result = await res.json();
 
-	if (result.modifiedTime)
-    	fs.utimesSync(localFilePath, new Date(result.modifiedTime), new Date(result.modifiedTime));
-	
+	onProgress(`Done: ${fileName}`, "done", "minor");
+}
+
+// ─── internal: get-or-create a Drive folder, with local cache ────────────────
+
+async function ensureDriveFolder(
+	client: OAuth2Client,
+	folderName: string,
+	parentId: string,
+	cache: Map<string, string>
+): Promise<string> {
+	const key = `${parentId}/${folderName}`;
+	if (cache.has(key)) return cache.get(key)!;
+
+	const query = `'${parentId}' in parents and name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+	const url = `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}&fields=files(id)`;
+	const res = await authorizedFetch(client, url);
+	let id: string = res.files?.[0]?.id;
+
+	if (!id) id = await createFolder(client, folderName, parentId);
+
+	cache.set(key, id);
+	return id;
+}
+
+// ─── internal: manifest upload/download ──────────────────────────────────────
+
+async function uploadManifest(client: OAuth2Client, serverDir: string, parentId: string, manifest: Manifest,
+	onProgress: (message: string, status?: "error" | "loading" | "done", importance?: "major" | "minor") => void
+): Promise<void> {
+	saveLocalManifest(serverDir, manifest);
+	await uploadFileRaw(client, getManifestPath(serverDir), parentId, onProgress);
+}
+
+async function fetchDriveManifest(client: OAuth2Client, parentId: string): Promise<Manifest | null> {
+	const query = `'${parentId}' in parents and name='manifest.json' and trashed=false`;
+	const url = `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}&fields=files(id)`;
+	const res = await authorizedFetch(client, url);
+	const file = res.files?.[0];
+	if (!file) return null;
+
+	const data = await downloadFile(client, file.id);
+	try {
+		return JSON.parse(data.toString("utf-8"));
+	} catch {
+		return null;
+	}
+}
+
+async function buildDriveIdMap(client: OAuth2Client, rootId: string, manifest: Manifest): Promise<Record<string, string>> {
+	// Collect unique folder paths (empty string = root)
+	const folderRelPaths = new Set<string>([""]);
+	for (const rel of Object.keys(manifest.files)) {
+		const parts = rel.split("/");
+		parts.pop();
+		if (parts.length > 0) folderRelPaths.add(parts.join("/"));
+	}
+
+	// Resolve each folder path to a Drive folder ID
+	const folderIdByRelPath: Record<string, string> = { "": rootId };
+	const cache = new Map<string, string>();
+
+	// Sort so parent paths are resolved before children
+	for (const folderPath of [...folderRelPaths].sort()) {
+		if (folderPath === "") continue;
+		const parts = folderPath.split("/");
+		let currentId = rootId;
+		let currentPath = "";
+		for (const part of parts) {
+			const nextPath = currentPath ? `${currentPath}/${part}` : part;
+			if (folderIdByRelPath[nextPath]) {
+				currentId = folderIdByRelPath[nextPath];
+			} else {
+				currentId = await ensureDriveFolder(client, part, currentId, cache);
+				folderIdByRelPath[nextPath] = currentId;
+			}
+			currentPath = nextPath;
+		}
+	}
+
+	// List files in each resolved folder
+	const result: Record<string, string> = {};
+	for (const [folderPath, folderId] of Object.entries(folderIdByRelPath)) {
+		const query = `'${folderId}' in parents and mimeType!='application/vnd.google-apps.folder' and trashed=false`;
+		const url = `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}&fields=files(id,name)&pageSize=1000`;
+		const listRes = await authorizedFetch(client, url);
+		for (const f of listRes.files ?? []) {
+			const rel = folderPath ? `${folderPath}/${f.name}` : f.name;
+			result[rel] = f.id;
+		}
+	}
+
 	return result;
 }
 
-async function uploadFolderRecursive(
-	client: OAuth2Client, 
-	localPath: string, 
-	parentId: string,
+export async function downloadServerFolder(
+	serverId: string,
 	onProgress: (message: string, status?: "error" | "loading" | "done", importance?: "major" | "minor") => void
 ) {
-	const items = fs.readdirSync(localPath);
+	console.log("Downloading server:", serverId);
+	onProgress("Checking drive manifest...", "loading", "major");
 
-	for (const item of items) {
-		const itemPath = path.join(localPath, item);
-		const stat = fs.statSync(itemPath);
+	const client = getOAuthClient();
+	const serverPath = getServerPath(serverId);
 
-		if (stat.isDirectory()) {
-			// Check if folder already exists on Drive
-			const query = `'${parentId}' in parents and name='${item}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
-			const checkUrl = `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}&fields=files(id)`;
-			const checkRes = await authorizedFetch(client, checkUrl);
+	if (!serverPath)
+		return { success: false, error: "No local path set." };
 
-			let folderId = checkRes.files?.[0]?.id;
+	try {
+		if (!fs.existsSync(serverPath))
+			fs.mkdirSync(serverPath, { recursive: true });
 
-			if (!folderId)
-				folderId = await createFolder(client, item, parentId);
+		const driveManifest = await fetchDriveManifest(client, serverId);
 
-			await uploadFolderRecursive(client, itemPath, folderId, onProgress);
-		} else {
-			await uploadFile(client, itemPath, parentId, onProgress);
+		if (!driveManifest) {
+			onProgress("No manifest found. Performing full sync...", "loading", "major");
+			await downloadFolderRecursive(client, serverId, serverPath, onProgress);
+			// Build and persist a local manifest from what we just downloaded
+			const manifest = buildInitialManifest(serverPath);
+			saveLocalManifest(serverPath, manifest);
+			onProgress("Drive folder downloaded.", "done", "major");
+			return { success: true };
 		}
+
+		const localManifest = loadLocalManifest(serverPath);
+
+		// Determine what needs downloading
+		const filesToDownload = Object.entries(driveManifest.files).filter(([rel, driveEntry]) => {
+			const localEntry = localManifest?.files[rel];
+			return !localEntry || driveEntry.version > localEntry.version;
+		});
+
+		if (filesToDownload.length === 0) {
+			onProgress("Local files are already up to date.", "done", "major");
+			return { success: true };
+		}
+
+		onProgress(`Downloading ${filesToDownload.length} changed file(s)...`, "loading", "major");
+
+		// Build path→id map with batched folder listings
+		const driveIdMap = await buildDriveIdMap(client, serverId, driveManifest);
+
+		for (const [rel] of filesToDownload) {
+			const fileId = driveIdMap[rel];
+			if (!fileId) {
+				onProgress(`Not found on Drive: ${rel}`, "error", "minor");
+				continue;
+			}
+			const localFilePath = path.join(serverPath, rel);
+			fs.mkdirSync(path.dirname(localFilePath), { recursive: true });
+			onProgress(`Downloading: ${rel}`, "loading", "minor");
+			const data = await downloadFile(client, fileId);
+			fs.writeFileSync(localFilePath, data);
+			onProgress(`Done: ${rel}`, "done", "minor");
+		}
+
+		// Drive manifest becomes the new local manifest
+		saveLocalManifest(serverPath, driveManifest);
+
+		onProgress(`Sync complete. ${filesToDownload.length} file(s) updated.`, "done", "major");
+		return { success: true };
+
+	} catch (err: any) {
+		return { success: false, error: err.message };
 	}
 }
 
@@ -396,71 +525,82 @@ export async function uploadServerFolder(
 	serverId: string,
 	onProgress: (message: string, status?: "error" | "loading" | "done", importance?: "major" | "minor") => void
 ) {
-
 	const client = getOAuthClient();
-	const fromPath = getServerPath(serverId)
+	const serverDir = getServerPath(serverId);
 
-	console.log("Uploading server folder:", fromPath);
-
-	if (!fromPath){
-		onProgress("Local server folder not found.", "error", "major")
+	if (!serverDir) {
+		onProgress("Local server folder not found.", "error", "major");
 		return { success: false, error: "Local server folder not found." };
 	}
 
-	onProgress("Uploading the files to the drive.", "loading", "major")
 	try {
-		await uploadFolderRecursive(client, fromPath, serverId, onProgress);
+		// Harvest watcher state and stop watching
+		const { changed, deleted } = getWatcherState();
+		stopWatcher();
+
+		// Fetch drive manifest first so we know if this is a first-time upload
+		onProgress("Checking drive manifest...", "loading", "major");
+		const driveManifest = await fetchDriveManifest(client, serverId);
+
+		let localManifest = loadLocalManifest(serverDir);
+		let filesToUpload: string[];
+
+		if (!driveManifest || !localManifest) {
+			// First time — upload everything and build manifest from scratch
+			onProgress("No manifest found. Uploading all files...", "loading", "major");
+			localManifest = buildInitialManifest(serverDir);
+			filesToUpload = Object.keys(localManifest.files);
+		} else {
+			// Normal session end — bump version and apply watcher changes
+			const sessionVersion = localManifest.version + 1;
+			localManifest = applyWatcherChanges(localManifest, changed, deleted, serverDir, sessionVersion);
+
+			// Upload only files that are newer than what's on the drive
+			filesToUpload = Object.entries(localManifest.files)
+				.filter(([rel, entry]) => {
+					const driveEntry = driveManifest.files[rel];
+					return !driveEntry || entry.version > driveEntry.version;
+				})
+				.map(([rel]) => rel);
+		}
+
+		if (filesToUpload.length === 0) {
+			onProgress("No changed files to upload.", "done", "major");
+			await uploadManifest(client, serverDir, serverId, localManifest, onProgress);
+			return { success: true };
+		}
+
+		onProgress(`Uploading ${filesToUpload.length} changed file(s)...`, "loading", "major");
+
+		const folderCache = new Map<string, string>();
+
+		for (const rel of filesToUpload) {
+			const localFilePath = path.join(serverDir, rel);
+			if (!fs.existsSync(localFilePath)) continue; // was deleted
+
+			// Ensure parent folder(s) exist on Drive
+			const parts = rel.split("/");
+			parts.pop(); // remove filename
+			let currentParent = serverId;
+			let currentPath = "";
+			for (const part of parts) {
+				currentPath = currentPath ? `${currentPath}/${part}` : part;
+				currentParent = await ensureDriveFolder(client, part, currentParent, folderCache);
+			}
+
+			await uploadFileRaw(client, localFilePath, currentParent, onProgress);
+		}
+
+		// Save updated manifest both locally and to Drive
+		await uploadManifest(client, serverDir, serverId, localManifest, onProgress);
+
+		onProgress(`Upload complete. ${filesToUpload.length} file(s) synced.`, "done", "major");
 		return { success: true };
+
 	} catch (err: any) {
+		onProgress(`Upload failed: ${err.message}`, "error", "major");
 		return { success: false, error: err.message };
 	}
-}
-
-function shouldDownloadFile(localPath: string, driveFile: any): boolean {
-    if (!fs.existsSync(localPath)) {
-        console.log(`DOWNLOAD: ${localPath} - file doesn't exist locally`);
-        return true;
-    }
-
-    const localStat = fs.statSync(localPath);
-    
-    if (!driveFile.size) {
-        console.log(`DOWNLOAD: ${path.basename(localPath)} - no size info from Drive`);
-        return true;
-    }
-
-    if (localStat.size !== parseInt(driveFile.size)) {
-        console.log(`DOWNLOAD: ${path.basename(localPath)} - size differs: local=${localStat.size} drive=${driveFile.size}`);
-        return true;
-    }
-
-    const driveModified = new Date(driveFile.modifiedTime).getTime();
-    if (driveModified > localStat.mtimeMs) {
-        console.log(`DOWNLOAD: ${path.basename(localPath)} - drive newer: drive=${new Date(driveFile.modifiedTime).toISOString()} local=${new Date(localStat.mtimeMs).toISOString()}`);
-        return true;
-    }
-
-    console.log(`SKIP: ${path.basename(localPath)}`);
-    return false;
-}
-
-function shouldUploadFile(localFilePath: string, driveFile: any): boolean {
-	//If file doesn't exist on drive then always upload
-	if (!driveFile)
-		return true;
-
-	const localStat = fs.statSync(localFilePath);
-
-	//If size differs then upload
-	if (localStat.size !== parseInt(driveFile.size))
-		return true;
-
-	//If local version is newer than drive then upload
-	const driveModified = new Date(driveFile.modifiedTime).getTime();
-	if (localStat.mtimeMs > driveModified)
-		return true;
-
-	return false;
 }
 
 export async function getFolderPermissions(folderId: string) {
@@ -539,7 +679,7 @@ export async function removeUserPermission(serverId: string, permissionId: strin
 		}
 	);
 
-	if(!isOwner){
+	if (!isOwner) {
 		removeJoinedServer(serverId)
 		removeServerPath(serverId)
 	}
@@ -563,7 +703,7 @@ export async function joinServerById(folderId: string) {
 		)
 
 		if (!res.ok) {
-			if(res.status === 404)
+			if (res.status === 404)
 				throw new Error("File not found. Either the folder ID is wrong or you haven't been invited to this server.")
 			throw new Error(await res.text())
 		}
@@ -588,21 +728,21 @@ export async function joinServerById(folderId: string) {
 }
 
 export async function renameServerFolder(folderId: string, newName: string) {
-    const client = getOAuthClient();
-    await refreshIfNeeded(client);
-    const accessToken = client.credentials.access_token;
+	const client = getOAuthClient();
+	await refreshIfNeeded(client);
+	const accessToken = client.credentials.access_token;
 
-    const res = await fetch(`${DRIVE_BASE_URL}/${folderId}`, {
-        method: "PATCH",
-        headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ name: newName })
-    });
+	const res = await fetch(`${DRIVE_BASE_URL}/${folderId}`, {
+		method: "PATCH",
+		headers: {
+			Authorization: `Bearer ${accessToken}`,
+			"Content-Type": "application/json"
+		},
+		body: JSON.stringify({ name: newName })
+	});
 
-    if (!res.ok)
-        throw new Error(await res.text());
+	if (!res.ok)
+		throw new Error(await res.text());
 
-    return { success: true };
+	return { success: true };
 }

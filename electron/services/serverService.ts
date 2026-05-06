@@ -2,7 +2,7 @@ import { OAuth2Client } from "google-auth-library";
 import { getUserInfo, refreshIfNeeded, getOAuthClient, authorizedFetch, } from "./googleAuthService";
 import { IStartupOptions } from "../../src/lib/types";
 import { launchPlayitgg, waitForPlayitLink, killPlayitgg } from "./childrenProcesses";
-import { syncServer, uploadServerFolder } from './googleDriveService'
+import { downloadServerFolder, uploadServerFolder } from './googleDriveService'
 import fs from "fs";
 import path from "path";
 
@@ -48,7 +48,7 @@ export async function startServer(
 	if(options.checklist.download && options.checklist.playitgg){
 		onProgress("Waiting for the ip from the playit.gg client.", "loading", "minor");
 		[syncRes, ip] = await Promise.all([
-			syncServer(folderId, onProgress),
+			downloadServerFolder(folderId, onProgress),
 			playitggProcess ? waitForPlayitLink(playitggProcess) : Promise.resolve(null)
 		]);
 		onProgress("Finished downloading server files.", "done", "major")
@@ -56,7 +56,7 @@ export async function startServer(
 	}
 	else if (options.checklist.download){
 		[syncRes] = await Promise.all([
-			syncServer(folderId, onProgress)
+			downloadServerFolder(folderId, onProgress)
 		])
 		onProgress("Finished downloading server files.", "done", "major")
 	}

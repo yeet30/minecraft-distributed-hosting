@@ -7,7 +7,7 @@ import {
 	createServerFolder,
 	deleteServerFolder,
 	getRootWithContents,
-	syncServer,
+	downloadServerFolder,
 	uploadServerFolder,
 	inviteUserToServer,
 	removeUserPermission,
@@ -15,7 +15,7 @@ import {
 	joinServerById,
 	renameServerFolder,
 } from './services/googleDriveService'
-
+import { startWatcher } from "./services/watcher";
 import { startServer, getServerLock, updateLockFile, stopServer, getMaxPlayers } from './services/serverService' 
 import { launchServer, getServerProcess, getPlayitggProcess, killPlayitgg, killServer } from './services/childrenProcesses'
 import { getServerPath, setServerPath, getLocalVariable, setLocalVariable } from './services/localServerStore'
@@ -297,6 +297,8 @@ ipcMain.handle("start-server", async (_, options: IStartupOptions) => {
 
 
 	win?.webContents.send("show-progress");
+	const serverDir = getServerPath(options.folderId);
+  	if (serverDir) startWatcher(serverDir);
     const result = await startServer(options, sendProgress);
 
     if (!result.success) {
@@ -438,7 +440,7 @@ ipcMain.handle("get-max-players", (_, serverPath) => {
 })
 
 ipcMain.handle("sync-server", async (_, serverId) => {
-	return await syncServer(serverId, sendProgress)
+	return await downloadServerFolder(serverId, sendProgress)
 })
 
 ipcMain.handle("upload-server-folder", async (_, serverId) => {
