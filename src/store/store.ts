@@ -38,14 +38,15 @@ interface LocalVariables{
         playitgg: boolean;
     }
     playitggPath: string;
-    allocatedRAM: {
-        MIN: number,
-        MAX: number
+    javaFlags: {
+        minRAM: number,
+        maxRAM: number,
+        customFlags: string
     }
 
     loadLocalVariables: () => Promise<void>
     setSelectedIndex: (index: number) => Promise<void>
-    setAllocatedRAM: (min: number, max: number) => Promise<void>
+    setJavaFlags: (min: number, max: number, customFlags: string) => Promise<void>
     setPlayitggPath: (path: string) => void
     setChecklist: (list: IChecklist) => void
 };
@@ -128,22 +129,23 @@ const useLocalStore = create<LocalVariables>((set) => ({
         playitgg: true
     },
     playitggPath: "",
-    allocatedRAM: {
-        MIN: 2048,
-        MAX: 4096,
+    javaFlags: {
+        minRAM: 2048,
+        maxRAM: 4096,
+        customFlags: ""
     },
 
     loadLocalVariables:
         async function() {
             const path = await window.ipcRenderer.invoke("get-local-variable", "playitggPath")
             const index = await window.ipcRenderer.invoke("get-local-variable", "selectedIndex")
-            const allocatedRAM = await window.ipcRenderer.invoke("get-local-variable", "allocatedRAM")
+            const javaFlags = await window.ipcRenderer.invoke("get-local-variable", "javaFlags")
             const checkList = await window.ipcRenderer.invoke("get-local-variable", "checklist")
             
             set({
                 playitggPath: path,
                 selectedIndex: index,
-                allocatedRAM: allocatedRAM || {MIN: 2048, MAX: 4096},
+                javaFlags: javaFlags || {minRAM: 2048, maxRAM: 4096, customFlags: ""},
                 checklist: checkList
             })
         },
@@ -153,14 +155,15 @@ const useLocalStore = create<LocalVariables>((set) => ({
             await window.ipcRenderer.invoke("set-local-variable", "selectedIndex" ,index)
         },
 
-    setAllocatedRAM:
-        async function (min: number, max: number){
-            const allocatedRAM = {
-                MIN: min,
-                MAX: max
+    setJavaFlags:
+        async function (min: number, max: number, customFlags: string){
+            const javaFlags = {
+                minRAM: min,
+                maxRAM: max,
+                customFlags: customFlags
             }
-            set({allocatedRAM: allocatedRAM})
-            await window.ipcRenderer.invoke("set-local-variable", "allocatedRAM", allocatedRAM)
+            set({javaFlags: javaFlags})
+            await window.ipcRenderer.invoke("set-local-variable", "javaFlags", javaFlags)
         },
     
     setPlayitggPath: 

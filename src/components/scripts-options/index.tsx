@@ -7,12 +7,13 @@ import OptionRow from '../option-row';
 
 export default function ScriptsOptions(){
 
-    const { checklist, allocatedRAM, playitggPath, setPlayitggPath, setAllocatedRAM, setChecklist} = useLocalStore();
+    const { checklist, javaFlags, playitggPath, setPlayitggPath, setJavaFlags, setChecklist} = useLocalStore();
     const [checklistBuffer, setChecklistBuffer] = useState<IChecklist>(checklist)
     const [pathBuffer, setPathBuffer] = useState<string>(playitggPath)
-    const [ram,setRam] = useState({
-        min: allocatedRAM.MIN,
-        max: allocatedRAM.MAX
+    const [flagsBuffer,setflagsBuffer] = useState({
+        minRAM: javaFlags.minRAM,
+        maxRAM: javaFlags.maxRAM,
+        customFlags: javaFlags.customFlags
     })
 
     async function handlePath(){
@@ -25,21 +26,19 @@ export default function ScriptsOptions(){
     function handleMin(e:React.ChangeEvent<HTMLInputElement>){
         if (e.target.value === "") return
         const value = Number(e.target.value)
-        if(value> ram.max) {
-            setRam(prev => ({...prev, min: ram.max}))
+        if(value> flagsBuffer.maxRAM) {
+            setflagsBuffer(prev => ({...prev, minRAM: flagsBuffer.maxRAM}))
             return
         }
-        setRam(prev => ({...prev, min: Number(e.target.value)}))
+        setflagsBuffer(prev => ({...prev, minRAM: Number(e.target.value)}))
     }
 
     function handleMax(e:React.ChangeEvent<HTMLInputElement>){
-        if (e.target.value === "") return
-        const value = Number(e.target.value)
-        if(value < ram.min) {
-            setRam(prev => ({...prev, min: ram.min}))
-            return
-        }
-        setRam(prev => ({...prev, max: Number(e.target.value)}))
+        setflagsBuffer(prev => ({...prev, maxRAM: Number(e.target.value)}))
+    }
+
+    function handleFlags(e:React.ChangeEvent<HTMLInputElement>){
+        setflagsBuffer(prev => ({...prev, customFlags: e.target.value}))
     }
 
     useEffect(()=>{
@@ -67,8 +66,13 @@ export default function ScriptsOptions(){
             changes.push("path");
         }
 
-        if (ram.min !== allocatedRAM.MIN || ram.max !== allocatedRAM.MAX) {
-            setAllocatedRAM(ram.min, ram.max);
+        if(flagsBuffer.customFlags !== javaFlags.customFlags) {
+            setJavaFlags(javaFlags.minRAM, javaFlags.maxRAM, flagsBuffer.customFlags)
+            changes.push("custom flags")
+        }
+
+        if (flagsBuffer.minRAM !== javaFlags.minRAM || flagsBuffer.maxRAM !== javaFlags.maxRAM) {
+            setJavaFlags(flagsBuffer.minRAM, flagsBuffer.maxRAM, javaFlags.customFlags)
             changes.push("ram");
         }
 
@@ -81,8 +85,15 @@ export default function ScriptsOptions(){
             changes.push("startup options")
         }
 
-        if (changes.length > 0)
-            alert(`Changes made to the ${changes.join(" and ")} are saved.`);
+        if (changes.length > 0){
+            let changesText = "";
+            if (changes.length > 2) {
+                changesText = changes.slice(0, changes.length - 1).join(", ").concat(" and ", changes[changes.length - 1])
+            }
+            else changesText = changes.join(" and ")
+            alert(`Changes made to the ${changesText} are saved.`);
+        }
+            
         else
             alert("No changes have been made.")
     }
@@ -126,33 +137,50 @@ export default function ScriptsOptions(){
                 onChange={(newValue) => setChecklistBuffer(prev => ({ ...prev, serverConsole: newValue }))}
             >
                 <p>Starts the server console on startup.</p>
-                <h4>RAM Allocation</h4>
-                <div className='ram-allocation'>
-                    <div className='ram-div'>
-                        <label htmlFor="min-ram">Min RAM</label>
-                        <span><input 
-                            id='min-ram' 
-                            name="min-ram" 
-                            type="number" 
-                            value={ram.min}
-                            onChange={(e) => handleMin(e)}/> 
+                <div className='java-flags'>
+                    <h4 className='flag-title'>RAM Allocation</h4>
+                    <div className='ram-allocation'>
+                        <div className='ram-div'>
+                            <label htmlFor="min-ram">Min RAM</label>
+                            <span>
+                                <input 
+                                    id='min-ram' 
+                                    name="min-ram" 
+                                    type="number" 
+                                    value={flagsBuffer.minRAM}
+                                    onChange={(e) => handleMin(e)}
+                                /> 
+                                MB
+                            </span>
+                        </div>
+                        
+                        <div className='ram-div'>
+                            <label htmlFor="max-ram">
+                                Max RAM
+                            </label>
+                            <span>
+                                <input 
+                                id='max-ram' 
+                                name="max-ram" 
+                                type="number" 
+                                value={flagsBuffer.maxRAM}
+                                onChange={(e) => handleMax(e)}
+                                /> 
                             MB
-                        </span>
+                            </span>
+                        </div>
                     </div>
-                    
-                    <div className='ram-div'>
-                        <label htmlFor="max-ram">
-                            Max RAM
-                        </label>
-                        <span>
-                            <input 
-                            id='max-ram' 
-                            name="max-ram" 
-                            type="number" 
-                            value={ram.max}
-                            onChange={(e) => handleMax(e)}/> 
-                        MB
-                        </span>
+
+                    <h4 className='flag-title'>Custom Java Flags</h4>
+                    <div className='flags-div'>
+                        <input 
+                            id='flags-input' 
+                            name='flags-input'
+                            type="text" 
+                            placeholder='Use this field only if you know what you are doing.'
+                            value={flagsBuffer.customFlags}
+                            onChange={(e)=> handleFlags(e)}
+                        />
                     </div>
                 </div>
             </OptionRow>

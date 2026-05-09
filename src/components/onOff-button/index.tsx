@@ -11,7 +11,7 @@ export default function OnOffButton() {
 
     const { userEmail } = useUserStore();
     const { loadingServers, servers, selectedServer, lockStatus, setLockStatus, loadServers } = useServerStore();
-    const { playitggPath, allocatedRAM, checklist } = useLocalStore();
+    const { playitggPath, javaFlags, checklist } = useLocalStore();
     const { confirm, popup } = useConfirm();
     const [loadingButton, setLoadingButton] = useState({ onOff: false, create: false, join: false })
     const [isModalOpen, setIsModalOpen] = useState(false)
@@ -69,7 +69,7 @@ export default function OnOffButton() {
             folderId: selectedServer.id,
             serverPath: selectedServer.path,
             playitggPath: playitggPath,
-            RAMoptions: allocatedRAM,
+            javaFlags: javaFlags,
         }
 
         const result = await window.ipcRenderer.invoke("start-server", options)

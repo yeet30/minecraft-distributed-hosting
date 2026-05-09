@@ -311,7 +311,7 @@ ipcMain.handle("start-server", async (_, options: IStartupOptions) => {
     // Launch the actual MC server process
 	if(options.checklist.serverConsole){
 		win?.webContents.send("server-started");
-		launchRes = launchServer(options.serverPath, options.RAMoptions, (msg) => {
+		launchRes = launchServer(options.serverPath, options.javaFlags, (msg) => {
 			win?.webContents.send("server-output", msg)
 		});
 

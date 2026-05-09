@@ -31,13 +31,16 @@ export interface ILockStatus {
     onlinePlayers?: string[]
 };
 
+export interface IJavaFlags {
+    minRAM: number,
+    maxRAM: number,
+    customFlags: string
+}
+
 export interface ILocalVariables{
     selectedIndex: number;
     playitggPath: string;
-    allocatedRAM: {
-        MIN: number,
-        MAX: number
-    },
+    javaFlags: IJavaFlags;
     checklist: {
         download: boolean,
         upload: boolean,
@@ -58,8 +61,5 @@ export interface IStartupOptions {
     folderId: string;
     serverPath: string,
     playitggPath: string;
-    RAMoptions: {
-        MIN: number;
-        MAX: number;
-    };
+    javaFlags: IJavaFlags
 }

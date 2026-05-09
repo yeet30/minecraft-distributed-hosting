@@ -92,12 +92,22 @@
         height: 2rem;
     }
 
+    .java-flags {
+        display: flex;
+        flex-direction: column;
+        margin: 0;
+        padding: 0;
+    }
+
+    .flag-title{
+        margin: 0.5rem 0rem
+    }
+
     .ram-allocation {
         display: flex;
         justify-content: space-between;
         width: 100%;
-        margin-top: 0.5rem;
-        padding-bottom: 2rem;
+        margin-bottom: 1rem;
     }
 
     .ram-div{
@@ -118,6 +128,15 @@
         font-weight: 100;
         font-size: 0.9rem;
         color: rgb(150, 150, 150);
+    }
+
+    .flags-div {
+        display: flex;
+        flex-direction: column;
+    }
+
+    #flags-input {
+        margin-bottom: 1.5rem;
     }
 
     .options-div{
