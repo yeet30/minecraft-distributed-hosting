@@ -2,8 +2,6 @@ import { watch, FSWatcher } from 'chokidar';
 import fs from 'fs';
 import path from 'path';
 
-const dir = "C:\\Users\\ygtyi\\Desktop\\Code\\fs-watcher"
-
 interface IManifest {
     version: number,
     updatedAt: string,
@@ -36,21 +34,25 @@ let localManifest: IManifest = {
     files: {}
 };
 
-function localManifestExists():boolean{
-    return fs.existsSync("./manifest.json")
+function getLocalManifestPath(serverDir:string):string{
+    return path.join(serverDir, "manifest.json")
 }
 
-function readLocalManifest(){
-    if (localManifestExists())
+function localManifestExists(serverDir:string):boolean{
+    return fs.existsSync(getLocalManifestPath(serverDir))
+}
+
+function readLocalManifest(serverDir:string){
+    if (localManifestExists(serverDir))
         localManifest = JSON.parse(fs.readFileSync("./manifest.json", { encoding: 'utf8', flag: 'r' }))
 }
 
-export function startWatcher(serverFolder: string){
+export function startWatcher(serverDir:string){
 
     stopWatcher()
     manifestUpdates = { toAdd: new Set<string>(), toRemove: new Set<string>() };
 
-    watcher = watch(serverFolder, {
+    watcher = watch(serverDir, {
         ignoreInitial: false,
         ignored: IGNORED_DIRECTORIES,
         persistent: true,
@@ -95,13 +97,13 @@ function manifestRemove(path: string) {
     manifestUpdates.toRemove.add(path)
 }
 
-export function writeManifest() {
-    readLocalManifest()
+export function writeManifest(serverDir:string) {
+    readLocalManifest(serverDir)
     for (const filePath of manifestUpdates.toAdd) {
         const existing = localManifest.files[filePath]
         let fileStats = null
         try {
-            fileStats = fs.statSync(path.join(dir, filePath))
+            fileStats = fs.statSync(path.join(serverDir, filePath))
         } catch (error) {
             console.log(`Could not write the information on the file: ${filePath}. See the reason below: \n${error}`)
         }
