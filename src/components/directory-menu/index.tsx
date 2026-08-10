@@ -1,11 +1,38 @@
 import './directory-menu.css'
-import { FolderCog } from 'lucide-react'
+import { FolderCog, FolderOpen } from 'lucide-react'
 import { useState, useRef } from 'react'
+import { useServerStore } from '../../store/store'
+import { IModalItems } from '../../lib/types'
+import Modal from '../modal'
+import FileWatcher from '../watcher-modal'
+import ManifestModal from '../manifest-modal'
 
-export function DirectoryMenu(){
+export function DirectoryMenu({isOwner}:{isOwner: boolean}){
 
     const [open, setOpen] = useState(false)
     const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const {loadingServers, loadingHosting, selectedServer} = useServerStore();
+    const [isModalOpen, setIsModalOpen] = useState(false)
+    const [modalItems, setModalItems] = useState<IModalItems[]>([])
+
+    function openFileWatcher(){
+        setModalItems([{
+            title: "File Watcher",
+            content: <FileWatcher/>
+        }])
+        setIsModalOpen(true)
+    }
+
+    function openManifest(){
+        setModalItems([{
+            title: "Upsert",
+            content: <ManifestModal bufferType='upsert'/>
+        },{
+            title: "Remove",
+            content: <ManifestModal bufferType='remove'/>
+        }])
+        setIsModalOpen(true)
+    }
 
     function cancelClose() {
         if(closeTimer.current) clearTimeout(closeTimer.current);
@@ -14,7 +41,10 @@ export function DirectoryMenu(){
 
     return (
         <div className='directory-menu-wrapper'>
-            <button className='folder-cog' 
+            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} height={400} items={modalItems}
+            />
+            <button className={`folder-cog ${open ? 'open': 'closed'}`}
+                disabled = {!isOwner || loadingServers || loadingHosting}
                 onClick={()=> setOpen((val) =>!val)}
                 onMouseEnter={cancelClose}
                 onMouseLeave={scheduleClose}
@@ -26,10 +56,20 @@ export function DirectoryMenu(){
                     onMouseEnter={cancelClose}
                     onMouseLeave={scheduleClose}
                 >
-                    <div>Watcher</div>
-                    <div>Manifest</div>
-                    <div>Upload</div>
-                    <div>Download</div>
+                    <div 
+                        className='dir-option'
+                        onClick={()=>openFileWatcher()}    
+                    >File Watcher
+                    </div>
+                    <div 
+                        className='dir-option'
+                        onClick={()=>openManifest()} 
+                    >Manifest
+                    </div>
+                    <div 
+                        className='dir-option'
+                        onClick={()=> window.ipcRenderer.invoke("open-folder", selectedServer?.path)}
+                    >Directory <FolderOpen className='folder-open' size={16}/></div>
                 </div>
             )}
         </div>

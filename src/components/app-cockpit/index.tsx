@@ -11,7 +11,7 @@ import JoinServer from '../join-server';
 export default function AppCockpit() {
 
     const { userEmail } = useUserStore();
-    const { loadingServers, servers, selectedServer, lockStatus, setLockStatus, loadServers } = useServerStore();
+    const { loadingServers, loadingHosting, servers, selectedServer, lockStatus, setLockStatus, loadServers } = useServerStore();
     const { playitggPath, allocatedRAM, checklist } = useLocalStore();
     const { confirm, popup } = useConfirm();
     const [loadingButton, setLoadingButton] = useState({ onOff: false, create: false, join: false })
@@ -184,7 +184,7 @@ export default function AppCockpit() {
                     className='onOff-button'
                     title="Start the server"
                     onClick={handleStart}
-                    disabled={loadingButton.onOff || loadingServers}>
+                    disabled={loadingButton.onOff || loadingServers || loadingHosting}>
                     {loadingButton.onOff || loadingServers
                         ? <Loader2 size={128} className='spinner' />
                         : <Power size={128} />
@@ -192,7 +192,7 @@ export default function AppCockpit() {
                 </button>
             }
             <div className='directory-menu'>
-                {isOwner && <DirectoryMenu/>}
+                <DirectoryMenu isOwner/>
             </div>
         </div>
     )

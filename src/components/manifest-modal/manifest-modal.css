@@ -1,0 +1,42 @@
+.manifest-modal-wrapper{
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding-top: 0;
+
+    h4 {
+        padding: 0;
+        margin: 0;
+    }
+
+    .manifest-title {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        background: rgb(30, 30, 30);
+        padding: 0.5rem 0rem;
+        margin-top: 0.5rem;
+        width: 100%;
+        z-index: 302;
+        flex-shrink: 0;
+    }
+
+    .files-div {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .manifest-buttons {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        width: 100%;
+        z-index: 302;
+        padding: 5px 0;
+        background: rgb(30, 30, 30);
+        flex-shrink: 0;
+    }
+}

@@ -63,3 +63,8 @@ export interface IStartupOptions {
         MAX: number;
     };
 }
+
+export interface IManifestUpdates {
+    toAdd: Set<string>,
+    toRemove: Set<string>
+}

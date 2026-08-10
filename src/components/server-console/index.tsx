@@ -49,7 +49,6 @@ export default function ServerConsole() {
     useEffect(()=> {
         async function init() {
             const isRunning = await window.ipcRenderer.invoke("is-server-running");
-            console.log(isRunning)
             setServerRunning(isRunning)
         };
 

@@ -15,7 +15,14 @@ import {
 	joinServerById,
 	renameServerFolder,
 } from './services/googleDriveService'
-
+import { 
+	startWatcher, 
+	stopWatcher, 
+	manifestEvents, 
+	isWatcherRunning, 
+	getManifestUpdates, 
+	writeManifest,
+} from './services/watcher-manifest'
 import { startServer, getServerLock, updateLockFile, stopServer, getMaxPlayers } from './services/serverService' 
 import { launchServer, getServerProcess, getPlayitggProcess, killPlayitgg, killServer } from './services/childrenProcesses'
 import { getServerPath, setServerPath, getLocalVariable, setLocalVariable } from './services/localServerStore'
@@ -476,6 +483,33 @@ ipcMain.handle("request-drive-scope", async () => {
 ipcMain.handle("rename-server", async (_, folderId, newName) => {
 	return await renameServerFolder(folderId, newName);
 });
+
+ipcMain.handle("open-folder", async (_, folderPath)=> {
+	return await shell.openPath(folderPath)
+})
+
+ipcMain.handle("start-watcher", async (_, folderPath)=>{
+	await startWatcher(folderPath);
+})
+
+ipcMain.handle("stop-watcher", async ()=>{
+	return stopWatcher();
+})
+
+ipcMain.handle('is-watcher-running', ()=> isWatcherRunning())
+
+manifestEvents.on('change', (change)=> win?.webContents.send('manifest:change', change))
+
+ipcMain.handle("get-manifest-updates", async () => getManifestUpdates());
+
+ipcMain.handle('write-manifest', (_, serverPath) => writeManifest(serverPath))
+
+ipcMain.handle('open-manifest', async (_, serverPath) => {
+	console.log(serverPath);
+	
+	const fullPath = path.join(serverPath, "manifest.json")
+	return await shell.openPath(fullPath)
+})
 
 ipcMain.handle("get-server-lock", async (_, folderId) => {
 	return await getServerLock(folderId);

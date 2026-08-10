@@ -50,6 +50,14 @@ interface LocalVariables{
     setChecklist: (list: IChecklist) => void
 };
 
+interface WatcherManifet {
+    trackedFiles: Set<string>
+
+    addFile: (path: string) => void
+    removeFile: (path: string) => void
+    setTrackedFiles: (trackedFiles: Set<string> )=> void
+}
+
 const useServerStore = create<ServerStore>((set,get) => ({
     servers: [],
     selectedServer: null,
@@ -176,6 +184,20 @@ const useLocalStore = create<LocalVariables>((set) => ({
         }
 }))
 
+const useWatcherManifest = create<WatcherManifet>((set,get)=>({
+    trackedFiles: new Set<string>(),
 
+    addFile: (path) => {
+        const buffTracked = new Set<string>(get().trackedFiles)
+        buffTracked.add(path)
+        set({trackedFiles: buffTracked})
+    },
+    removeFile(path) {
+        const buff = new Set<string>(get().trackedFiles)
+        buff.delete(path)
+        set({trackedFiles: buff})
+    },
+    setTrackedFiles: (tracked: Set<string>) => set({trackedFiles: tracked})
+}))
 
-export {useServerStore, useUserStore, useLocalStore};
+export {useServerStore, useUserStore, useLocalStore, useWatcherManifest};
