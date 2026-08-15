@@ -15,6 +15,7 @@ const defaultStore: Store = {
     localVariables: {
         selectedIndex: 0,
         playitggPath: "",
+        watcherBlacklist: [],
         allocatedRAM: {
             MIN: 2048,
             MAX: 4096

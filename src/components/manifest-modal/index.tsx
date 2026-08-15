@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import './manifest-modal.css'
 import { IManifestUpdates } from '../../lib/types'
 import { useWatcherManifest, useServerStore } from '../../store/store'
-import { FolderOpen } from 'lucide-react'
+import { FileJson } from 'lucide-react'
 
 export default function ManifestModal({bufferType}: {bufferType: "upsert" | "remove"}){
 
@@ -33,9 +33,9 @@ export default function ManifestModal({bufferType}: {bufferType: "upsert" | "rem
                     <h4>Files to be updated in manifest.json:</h4>
                 </div>
                 <div className='files-div'>
-                    <ul>
+                    <ul className='files-ul'>
                         {Array.from(manifestChanges.toAdd).map((file)=>(
-                            <li key={file}>{file}</li>
+                            <li className='files-li' key={file}>{file}</li>
                         ))}
                     </ul>
                 </div>
@@ -49,7 +49,7 @@ export default function ManifestModal({bufferType}: {bufferType: "upsert" | "rem
                         title='Open the manifest.json file'
                         onClick={()=>window.ipcRenderer.invoke("open-manifest", selectedServer?.path)}
                         >
-                        <FolderOpen size={16}/>
+                        <FileJson size={16}/>
                     </button>
                 </div>
             </div>
@@ -61,9 +61,9 @@ export default function ManifestModal({bufferType}: {bufferType: "upsert" | "rem
                     <h4>Files to be removed from manifest.json:</h4>
                 </div>
                 <div className='files-div'>
-                    <ul>
+                    <ul className='files-ul'>
                         {Array.from(manifestChanges.toRemove).map((file)=>(
-                            <li key={file}>{file}</li>
+                            <li className='files-li' key={file}>{file}</li>
                         ))}
                     </ul>
                 </div>
@@ -77,7 +77,7 @@ export default function ManifestModal({bufferType}: {bufferType: "upsert" | "rem
                         title='Open the manifest.json file'
                         onClick={()=>window.ipcRenderer.invoke("open-manifest", selectedServer?.path)}
                         >
-                        <FolderOpen size={16}/>
+                        <FileJson size={16}/>
                     </button>
                 </div>
             </div>

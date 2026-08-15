@@ -34,6 +34,7 @@ export interface ILockStatus {
 export interface ILocalVariables{
     selectedIndex: number;
     playitggPath: string;
+    watcherBlacklist: string[];
     allocatedRAM: {
         MIN: number,
         MAX: number

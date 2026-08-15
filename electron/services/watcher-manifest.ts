@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import EventEmitter from 'events';
 import { IManifestUpdates } from '../../src/lib/types';
+import { getLocalVariable, setLocalVariable } from './localServerStore';
 
 interface IManifest {
     version: number,
@@ -16,17 +17,11 @@ interface IFileEntry {
     updatedAt: string
 }
 
-const IGNORED_DIRECTORIES = [
-    /[/\\]node_modules[/\\]/,
-    /[/\\]manifest\.json$/,
-    /[/\\]\.vscode[/\\]/,
-    /[/\\]lock\.json$/,
-    /[/\\]session\.lock$/,
-    /[/\\]logs[/\\]/,
-    /[/\\]crash-reports[/\\]/,
-    /\.log$/,
-];
+const PROTECTED_NAMES = new Set<string>(["manifest.json", "lock.json"])
+let ignoredNames = new Set<string>([...PROTECTED_NAMES])
 
+let trackedFiles = new Set<string>()
+let ignoredPatterns: RegExp[] = [];
 let manifestUpdates: IManifestUpdates = { toAdd: new Set<string>(), toRemove: new Set<string>() };
 let watcher: FSWatcher | null = null;
 export const manifestEvents = new EventEmitter()
@@ -49,14 +44,35 @@ function readLocalManifest(serverDir: string) {
         localManifest = JSON.parse(fs.readFileSync(getLocalManifestPath(serverDir), { encoding: 'utf8', flag: 'r' }))
 }
 
+function escapeRegExp(str: string): string { return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}
+
+function normalizePath(p: string): string { return path.resolve(p).replace(/\\/g, "/").replace(/\/+$/, "")}
+
+function makeSpecificDirRule(rootDir: string, folderName: string): RegExp {
+    const safeRoot = escapeRegExp(normalizePath(rootDir));
+    const safeName = escapeRegExp(folderName);
+    return new RegExp(`^${safeRoot}/${safeName}(/|$)`);
+}
+
+function rebuildIgnoredPatterns(serverDir: string): void {
+    ignoredPatterns = Array.from(ignoredNames).map(name => makeSpecificDirRule(serverDir, name));
+}
+
+function isIgnored(filePath: string): boolean {
+    const normalizedPath = filePath.replace(/\\/g, "/");
+    return ignoredPatterns.some(pattern => pattern.test(normalizedPath));
+}
+
 export async function startWatcher(serverDir: string) {
 
     stopWatcher()
     manifestUpdates = { toAdd: new Set<string>(), toRemove: new Set<string>() };
+    ignoredNames = new Set(getLocalVariable("watcherBlacklist"))
+    rebuildIgnoredPatterns(serverDir)
 
     watcher = watch(serverDir, {
         ignoreInitial: false,
-        ignored: IGNORED_DIRECTORIES,
+        ignored: isIgnored,
         persistent: true,
         awaitWriteFinish: {
             stabilityThreshold: 3000,
@@ -82,7 +98,6 @@ export async function startWatcher(serverDir: string) {
     })
 }
 
-
 //Leaves in only the files that had been added/removed while the program was not running.
 function removeDuplicates(){
     for (const filePath of Object.keys(localManifest.files)) {
@@ -101,6 +116,7 @@ function manifestUpsert(serverDir: string, p: string) {
     const rel = path.relative(serverDir, p)
     console.log(`File ${rel} has been added to the manifest.`)
     manifestEvents.emit('change', { opertion: 'upsert', path: rel })
+    trackedFiles.add(rel)
     manifestUpdates.toRemove.delete(rel)
     manifestUpdates.toAdd.add(rel)
 }
@@ -109,6 +125,7 @@ function manifestRemove(serverDir:string, p: string) {
     const rel = path.relative(serverDir, p)
     console.log(`File ${rel} has been removed from the manifest.`)
     manifestEvents.emit('change', { opertion: 'remove', path: rel })
+    trackedFiles.delete(rel)
     manifestUpdates.toAdd.delete(rel)
     manifestUpdates.toRemove.add(rel)
 }
@@ -149,11 +166,30 @@ export function writeManifest(serverDir: string) {
     console.log("The manifest.json has been written.");
 }
 
+export function setWatcherBlacklist(serverDir: string, blacklist: Set<string>){    
+    ignoredNames = new Set([...PROTECTED_NAMES, ...blacklist]);
+    console.log("updated ignored: ", ignoredNames);
+    
+    setLocalVariable("watcherBlacklist", [...ignoredNames])
+    rebuildIgnoredPatterns(serverDir)
+}
+
+export function mutateTrackedFiles(change: {operation: "add" | "remove", filePath:string}){
+    if(change.operation === "add")
+        trackedFiles.add(change.filePath)
+    else if(change.operation === "remove")
+        trackedFiles.delete(change.filePath)
+}
+
 export function stopWatcher() {
     watcher?.close();
     watcher = null;
 }
 
+export function getBlacklist(): Set<string> {return ignoredNames}
+
+export function getTrackedFiles(): Set<string> { return trackedFiles }
+
 export function isWatcherRunning(): boolean { return !(watcher === null) }
 
-export function getManifestUpdates() { return manifestUpdates; }
+export function getManifestUpdates(): IManifestUpdates { return manifestUpdates; }

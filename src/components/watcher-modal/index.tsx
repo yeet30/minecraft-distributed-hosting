@@ -26,6 +26,10 @@ export default function WatcherModal(){
     async function checkWatcher(){
         const running = await window.ipcRenderer.invoke("is-watcher-running", selectedServer?.path)
         setWatcherRunning(running)
+        if(running){
+            const buff = await window.ipcRenderer.invoke("get-tracked-files")
+            setTrackedFiles(buff)
+        }
     }
 
     useEffect(()=>{checkWatcher()}, [])
@@ -40,9 +44,9 @@ export default function WatcherModal(){
                 <code>{selectedServer?.path}</code>
             </div>
             <div className='files-div'>
-                <ul>
+                <ul className='files-ul'>
                     {Array.from(trackedFiles).map((file)=>(
-                        <li key={file}>{file}</li>
+                        <li className='files-li' key={file}>{file}</li>
                     ))}
                 </ul>
             </div>

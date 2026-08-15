@@ -20,7 +20,11 @@ import {
 	stopWatcher, 
 	manifestEvents, 
 	isWatcherRunning, 
-	getManifestUpdates, 
+	getManifestUpdates,
+	getTrackedFiles,
+	mutateTrackedFiles,
+	getBlacklist,
+	setWatcherBlacklist,
 	writeManifest,
 } from './services/watcher-manifest'
 import { startServer, getServerLock, updateLockFile, stopServer, getMaxPlayers } from './services/serverService' 
@@ -416,14 +420,15 @@ ipcMain.handle("drive-get-root", async () => {
 	return await getRootWithContents();
 })
 
-ipcMain.handle("choose-file-directory", async () => {
-	const result = await dialog.showOpenDialog({ properties: ["openFile"] })
+ipcMain.handle("choose-file-directory", async (_, serverPath) => {
+	const result = await dialog.showOpenDialog({ 
+		properties: ["openFile"],
+		defaultPath: serverPath
+	})
 
-	if (result.canceled) return null;
+	if (result.canceled || result.filePaths.length === 0) return null;
 
-	const filePath = result.filePaths[0];
-
-	return filePath;
+	return  result.filePaths[0];
 })
 
 ipcMain.handle("set-server-path", async (_, serverId) => {
@@ -501,6 +506,14 @@ ipcMain.handle('is-watcher-running', ()=> isWatcherRunning())
 manifestEvents.on('change', (change)=> win?.webContents.send('manifest:change', change))
 
 ipcMain.handle("get-manifest-updates", async () => getManifestUpdates());
+
+ipcMain.handle("get-tracked-files", async () => getTrackedFiles());
+
+ipcMain.handle("mutate-tracked-files", (_, change)=> mutateTrackedFiles(change))
+
+ipcMain.handle("get-blacklist", async () => getBlacklist());
+
+ipcMain.handle("set-blacklist", async (_, serverDir, list) => setWatcherBlacklist(serverDir, new Set(list)));	
 
 ipcMain.handle('write-manifest', (_, serverPath) => writeManifest(serverPath))
 

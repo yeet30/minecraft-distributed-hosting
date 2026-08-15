@@ -1,13 +1,14 @@
 import './scripts-options.css'
 import { Pencil } from 'lucide-react'
 import { useEffect, useState } from 'react';
-import { useLocalStore } from '../../store/store';
+import { useLocalStore, useServerStore } from '../../store/store';
 import { IChecklist } from '../../lib/types';
 import OptionRow from '../option-row';
 
 export default function ScriptsOptions(){
 
     const { checklist, allocatedRAM, playitggPath, setPlayitggPath, setAllocatedRAM, setChecklist} = useLocalStore();
+    const {selectedServer} = useServerStore()
     const [checklistBuffer, setChecklistBuffer] = useState<IChecklist>(checklist)
     const [pathBuffer, setPathBuffer] = useState<string>(playitggPath)
     const [ram,setRam] = useState({
@@ -16,7 +17,7 @@ export default function ScriptsOptions(){
     })
 
     async function handlePath(){
-        const path = await window.ipcRenderer.invoke("choose-file-directory")
+        const path = await window.ipcRenderer.invoke("choose-file-directory", selectedServer?.path)
         if(!path || path === playitggPath)
             return
         setPathBuffer(path)

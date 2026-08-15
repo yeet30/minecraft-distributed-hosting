@@ -6,6 +6,7 @@ import { IModalItems } from '../../lib/types'
 import Modal from '../modal'
 import FileWatcher from '../watcher-modal'
 import ManifestModal from '../manifest-modal'
+import BlacklistModal from '../blacklist-modal'
 
 export function DirectoryMenu({isOwner}:{isOwner: boolean}){
 
@@ -19,6 +20,10 @@ export function DirectoryMenu({isOwner}:{isOwner: boolean}){
         setModalItems([{
             title: "File Watcher",
             content: <FileWatcher/>
+        },
+            {
+            title: "Blacklist",
+            content: <BlacklistModal/>
         }])
         setIsModalOpen(true)
     }
