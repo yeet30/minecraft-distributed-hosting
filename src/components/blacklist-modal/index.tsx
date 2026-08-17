@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import './blacklist-modal.css'
 import { Plus } from 'lucide-react'
 import { Folder, Trash2, CircleHelp } from 'lucide-react'
@@ -12,6 +12,7 @@ export default function BlacklistModal() {
 
     const { selectedServer } = useServerStore()
     const [blacklist, setBlacklist] = useState<Set<string>>(new Set())
+    const initialized = useRef(false)
     const [rel, setRel] = useState<string>("")
 
     async function handleAdd() {
@@ -61,7 +62,13 @@ export default function BlacklistModal() {
         init()
     }, [])
 
-    useEffect(() => { window.ipcRenderer.invoke("set-blacklist", selectedServer?.path, [...blacklist]) }, [blacklist])
+    useEffect(() => { 
+        if (!initialized.current) {
+            initialized.current = true
+            return
+        }
+        window.ipcRenderer.invoke("set-blacklist", selectedServer?.path, [...blacklist]) 
+    }, [blacklist])
 
     return (
         <div className="blacklist-wrapper">

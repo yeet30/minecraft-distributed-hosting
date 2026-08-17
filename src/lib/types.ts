@@ -65,7 +65,12 @@ export interface IStartupOptions {
     };
 }
 
-export interface IManifestUpdates {
-    toAdd: Set<string>,
-    toRemove: Set<string>
+export interface IWatcherEntry {
+    size: number,
+    changedAt: number
+}
+
+export interface IWatcherUpdates {
+    toAdd: Map<string,IWatcherEntry>
+    toRemove: Map<string,IWatcherEntry>
 }

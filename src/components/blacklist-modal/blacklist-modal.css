@@ -29,10 +29,32 @@
         background-color: rgb(25, 25, 25);
         border-radius: 10px;
         flex: 1 1 auto;
-        overflow-y: auto;
         display: flex;
         flex-direction: column;
         min-height: 0;
+
+        overflow-y: auto;
+        overflow-x: auto;
+    }
+
+    .files-div::-webkit-scrollbar {
+        display:block;
+        width: 8px;
+        height: 8px
+    }
+
+    .files-div::-webkit-scrollbar-thumb {
+        background: #555;
+        border-radius: 4px;
+    }
+
+    .files-div::-webkit-scrollbar-track {
+        background: #222222;
+        border-radius: 10px;
+    }
+
+    .files-div::-webkit-scrollbar-corner {
+        display: none;
     }
 
     .files-ul{
@@ -50,6 +72,7 @@
         width: fit-content;
         list-style: none;
         width: 100%;
+        font-size: small;
         justify-content: space-between;
 
         span{

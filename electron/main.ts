@@ -20,7 +20,7 @@ import {
 	stopWatcher, 
 	manifestEvents, 
 	isWatcherRunning, 
-	getManifestUpdates,
+	getWatcherUpdates,
 	getTrackedFiles,
 	mutateTrackedFiles,
 	getBlacklist,
@@ -505,7 +505,7 @@ ipcMain.handle('is-watcher-running', ()=> isWatcherRunning())
 
 manifestEvents.on('change', (change)=> win?.webContents.send('manifest:change', change))
 
-ipcMain.handle("get-manifest-updates", async () => getManifestUpdates());
+ipcMain.handle("get-watcher-updates", async (_, serverDir) => getWatcherUpdates(serverDir));
 
 ipcMain.handle("get-tracked-files", async () => getTrackedFiles());
 

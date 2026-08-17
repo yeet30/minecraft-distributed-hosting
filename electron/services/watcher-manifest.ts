@@ -2,7 +2,7 @@ import { watch, FSWatcher } from 'chokidar';
 import fs from 'fs';
 import path from 'path';
 import EventEmitter from 'events';
-import { IManifestUpdates } from '../../src/lib/types';
+import { IWatcherEntry, IWatcherUpdates } from '../../src/lib/types';
 import { getLocalVariable, setLocalVariable } from './localServerStore';
 
 interface IManifest {
@@ -22,7 +22,10 @@ let ignoredNames = new Set<string>([...PROTECTED_NAMES])
 
 let trackedFiles = new Set<string>()
 let ignoredPatterns: RegExp[] = [];
-let manifestUpdates: IManifestUpdates = { toAdd: new Set<string>(), toRemove: new Set<string>() };
+let watcherUpdates: IWatcherUpdates = { 
+    toAdd: new Map<string,IWatcherEntry>(), 
+    toRemove: new Map<string,IWatcherEntry>() 
+};
 let watcher: FSWatcher | null = null;
 export const manifestEvents = new EventEmitter()
 let localManifest: IManifest = {
@@ -66,7 +69,10 @@ function isIgnored(filePath: string): boolean {
 export async function startWatcher(serverDir: string) {
 
     stopWatcher()
-    manifestUpdates = { toAdd: new Set<string>(), toRemove: new Set<string>() };
+    watcherUpdates = { 
+        toAdd: new Map<string,IWatcherEntry>(), 
+        toRemove: new Map<string,IWatcherEntry>() 
+    };
     ignoredNames = new Set(getLocalVariable("watcherBlacklist"))
     rebuildIgnoredPatterns(serverDir)
 
@@ -101,15 +107,15 @@ export async function startWatcher(serverDir: string) {
 //Leaves in only the files that had been added/removed while the program was not running.
 function removeDuplicates(){
     for (const filePath of Object.keys(localManifest.files)) {
-        if (manifestUpdates.toAdd.has(filePath))
-            manifestUpdates.toAdd.delete(filePath)
+        if (watcherUpdates.toAdd.has(filePath))
+            watcherUpdates.toAdd.delete(filePath)
         else {
-            manifestUpdates.toRemove.add(filePath)
-            manifestUpdates.toAdd.delete(filePath)
+            watcherUpdates.toRemove.set(filePath, {size: 0, changedAt: 0})
+            watcherUpdates.toAdd.delete(filePath)
         }
     }
-    console.log("These files have been removed from to the directory while the program was not running:", manifestUpdates.toRemove);
-    console.log("These files have been added to the directory while the program was not running:", manifestUpdates.toAdd);
+    console.log("These files have been removed from to the directory while the program was not running:", watcherUpdates.toRemove);
+    console.log("These files have been added to the directory while the program was not running:", watcherUpdates.toAdd);
 }
 
 function manifestUpsert(serverDir: string, p: string) {
@@ -117,8 +123,8 @@ function manifestUpsert(serverDir: string, p: string) {
     console.log(`File ${rel} has been added to the manifest.`)
     manifestEvents.emit('change', { opertion: 'upsert', path: rel })
     trackedFiles.add(rel)
-    manifestUpdates.toRemove.delete(rel)
-    manifestUpdates.toAdd.add(rel)
+    watcherUpdates.toRemove.delete(rel)
+    watcherUpdates.toAdd.set(rel, {size: 0, changedAt: 0})
 }
 
 function manifestRemove(serverDir:string, p: string) {
@@ -126,13 +132,13 @@ function manifestRemove(serverDir:string, p: string) {
     console.log(`File ${rel} has been removed from the manifest.`)
     manifestEvents.emit('change', { opertion: 'remove', path: rel })
     trackedFiles.delete(rel)
-    manifestUpdates.toAdd.delete(rel)
-    manifestUpdates.toRemove.add(rel)
+    watcherUpdates.toAdd.delete(rel)
+    watcherUpdates.toRemove.set(rel, {size: 0, changedAt: Date.now()})
 }
 
 export function writeManifest(serverDir: string) {
     readLocalManifest(serverDir)
-    for (const filePath of manifestUpdates.toAdd) {
+    for (const filePath of watcherUpdates.toAdd.keys()) {
         const existing = localManifest.files[filePath]
         let fileStats = null
         try {
@@ -155,14 +161,14 @@ export function writeManifest(serverDir: string) {
             }
         }
     }
-    for (const filePath of manifestUpdates.toRemove)
+    for (const filePath of watcherUpdates.toRemove.keys())
         delete localManifest.files[filePath]
     const tempPath= path.join(serverDir, "manifest.tmp")
     const manifestPath = getLocalManifestPath(serverDir)
     fs.writeFileSync(tempPath, JSON.stringify(localManifest, null, 4), "utf8")
     fs.renameSync(tempPath, manifestPath);
-    manifestUpdates.toAdd.clear()
-    manifestUpdates.toRemove.clear()
+    watcherUpdates.toAdd.clear()
+    watcherUpdates.toRemove.clear()
     console.log("The manifest.json has been written.");
 }
 
@@ -183,6 +189,7 @@ export function mutateTrackedFiles(change: {operation: "add" | "remove", filePat
 
 export function stopWatcher() {
     watcher?.close();
+    trackedFiles.clear()
     watcher = null;
 }
 
@@ -192,4 +199,11 @@ export function getTrackedFiles(): Set<string> { return trackedFiles }
 
 export function isWatcherRunning(): boolean { return !(watcher === null) }
 
-export function getManifestUpdates(): IManifestUpdates { return manifestUpdates; }
+export function getWatcherUpdates(serverDir: string): IWatcherUpdates { 
+    for (const [filePath, update] of watcherUpdates.toAdd) {
+        const stats = fs.statSync(path.join(serverDir,filePath))
+        update.size = stats.size
+        update.changedAt = stats.mtimeMs
+    }
+    return watcherUpdates
+}

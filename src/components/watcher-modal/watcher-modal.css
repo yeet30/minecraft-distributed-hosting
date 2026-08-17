@@ -3,6 +3,8 @@
     flex-direction: column;
     height: 100%;
     padding-top: 0;
+    min-height: 0;
+    overflow-y: auto;
 
     h4 {
         margin: 0;
@@ -25,10 +27,32 @@
         background-color: rgb(25, 25, 25);
         border-radius: 10px;
         flex: 1 1 auto;
-        overflow-y: auto;
         display: flex;
         flex-direction: column;
         min-height: 0;
+
+        overflow-x: auto;
+        overflow-y: auto;
+    }
+
+    .files-div::-webkit-scrollbar {
+        display:block;
+        width: 8px;
+        height: 8px
+    }
+
+    .files-div::-webkit-scrollbar-thumb {
+        background: #555;
+        border-radius: 4px;
+    }
+
+    .files-div::-webkit-scrollbar-track {
+        background: #2e2e2e;
+        border-radius: 10px;
+    }
+
+    .files-div::-webkit-scrollbar-corner {
+        display: none;
     }
 
     .files-ul{
@@ -46,6 +70,7 @@
         margin-bottom: 5px;
         width: fit-content;
         list-style: none;
+        font-size: small;
         background-color: rgb(20, 20, 20);
     }
 
