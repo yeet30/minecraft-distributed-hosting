@@ -7,14 +7,13 @@ import {
 	createServerFolder,
 	deleteServerFolder,
 	getRootWithContents,
-	syncServer,
-	uploadServerFolder,
 	inviteUserToServer,
 	removeUserPermission,
 	getJoinedServers,
 	joinServerById,
 	renameServerFolder,
 } from './services/googleDriveService'
+import { downloadServerFolder, uploadServerFolder } from './services/fileTransferService'
 import { 
 	startWatcher, 
 	stopWatcher, 
@@ -25,7 +24,9 @@ import {
 	mutateTrackedFiles,
 	getBlacklist,
 	setWatcherBlacklist,
-	writeManifest,
+	writeLocalManifest,
+	getFilesToDownload,
+	getFilesToUpload
 } from './services/watcher-manifest'
 import { startServer, getServerLock, updateLockFile, stopServer, getMaxPlayers } from './services/serverService' 
 import { launchServer, getServerProcess, getPlayitggProcess, killPlayitgg, killServer } from './services/childrenProcesses'
@@ -450,11 +451,11 @@ ipcMain.handle("get-max-players", (_, serverPath) => {
 })
 
 ipcMain.handle("sync-server", async (_, serverId) => {
-	return await syncServer(serverId, sendProgress)
+	return await downloadServerFolder(serverId)
 })
 
 ipcMain.handle("upload-server-folder", async (_, serverId) => {
-	return await uploadServerFolder(serverId, sendProgress);
+	return await uploadServerFolder(serverId);
 })
 
 ipcMain.handle("drive-invite-user", async (_, serverId, email, message?) => {
@@ -515,7 +516,13 @@ ipcMain.handle("get-blacklist", async () => getBlacklist());
 
 ipcMain.handle("set-blacklist", async (_, serverDir, list) => setWatcherBlacklist(serverDir, new Set(list)));	
 
-ipcMain.handle('write-manifest', (_, serverPath) => writeManifest(serverPath))
+ipcMain.handle('write-manifest', (_, serverPath) => writeLocalManifest(serverPath))
+
+//Temporary implemantation to test the functionality
+ipcMain.handle('get-files-to-download', (_, serverDir:string, serverId: string)=>getFilesToDownload(serverDir, serverId))
+
+//Temporary implemantation to test the functionality
+ipcMain.handle('get-files-to-upload', (_, serverDir:string, serverId: string)=>getFilesToUpload(serverDir, serverId))
 
 ipcMain.handle('open-manifest', async (_, serverPath) => {
 	console.log(serverPath);

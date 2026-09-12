@@ -53,8 +53,8 @@ export default function GreetingSection() {
                 <h2 className="greeting-title">Welcome, {userName}!</h2>
                 <div className='starter-section'>
                     <AppCockpit/>
-                    {showProgress && <div><StartupProgress/></div>}
                     <div><SelectServer/></div>
+                    {<div><StartupProgress/></div>}
                     <div><PlayitggLink/></div>
                 </div>
             </div>

@@ -1,5 +1,3 @@
-import path from "path";
-import fs from "fs";
 import { OAuth2Client } from "google-auth-library";
 import { addJoinedServer, removeJoinedServer, getJoinedServerIds, getServerPath, removeServerPath } from "./localServerStore";
 import { getOAuthClient, refreshIfNeeded, authorizedFetch, debugUser } from "./googleAuthService";
@@ -31,7 +29,7 @@ async function countServerFolders(client: OAuth2Client, rootId: string) {
 	return data.files || [];
 }
 
-async function createFolder(client: OAuth2Client, name: string, parentId?: string) {
+export async function createFolder(client: OAuth2Client, name: string, parentId?: string) {
 
 	const body: any = {name, mimeType: "application/vnd.google-apps.folder"};
 
@@ -49,26 +47,18 @@ async function createFolder(client: OAuth2Client, name: string, parentId?: strin
 export async function createServerFolder() {
 	try {
 		const client = getOAuthClient();
-
-		// Step 1: Ensure root exists
 		let rootId = await findRootFolder(client);
-
 		if (!rootId) {
 			rootId = await createFolder(client, ROOT_FOLDER_NAME);
 		}
-
-		// Step 2: Count existing servers
 		const servers = await countServerFolders(client, rootId);
-
 		if (servers.length >= MAX_SERVERS) {
 			return {
 				success: false,
 				error: "Maximum 3 servers reached"
 			};
 		}
-
 		const newServerName = `Server-${servers.length + 1}`;
-
 		const id = await createFolder(client, newServerName, rootId);
 
 		return { success: true, folderId: id };
@@ -84,17 +74,12 @@ export async function createServerFolder() {
 export async function deleteServerFolder(folderId: string) {
 	try {
 		const client = getOAuthClient();
-
 		const url = `https://www.googleapis.com/drive/v3/files/${folderId}`;
-
 		await authorizedFetch(client, url, {
 			method: "DELETE"
 		});
-
 		removeServerPath(folderId)
-
 		return { success: true };
-
 	} catch (err: any) {
 		return {
 			success: false,
@@ -105,11 +90,8 @@ export async function deleteServerFolder(folderId: string) {
 
 async function listServerFolders(client: OAuth2Client, folderId: string) {
 	const query = `'${folderId}' in parents and trashed=false`;
-
 	const url = `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType)`;
-
 	const data = await authorizedFetch(client, url);
-
 	const servers = await Promise.all(
 		data.files
 			.filter((f: any) => f.mimeType === "application/vnd.google-apps.folder")
@@ -121,31 +103,13 @@ async function listServerFolders(client: OAuth2Client, folderId: string) {
 				permittedUsers: await getFolderPermissions(f.id)
 			}))
 	)
-
 	return servers;
-}
-
-async function listFolderContents(client: OAuth2Client, folderId: string) {
-
-	const query = `'${folderId}' in parents and trashed=false`;
-
-	const url =
-		`${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}`
-		+ `&fields=files(id,name,mimeType,modifiedTime,size),nextPageToken`
-		+ `&supportsAllDrives=true`
-		+ `&includeItemsFromAllDrives=true`;
-
-	const data = await authorizedFetch(client, url);
-
-	return data.files || [];
 }
 
 export async function getRootWithContents() {
 	try {
 		const client = getOAuthClient();
-
 		const rootId = await findRootFolder(client);
-
 		if (!rootId) {
 			return {
 				success: true,
@@ -154,9 +118,7 @@ export async function getRootWithContents() {
 				servers: []
 			};
 		}
-
 		const servers = await listServerFolders(client, rootId);
-
 		return {
 			success: true,
 			rootId,
@@ -212,255 +174,6 @@ export async function getJoinedServers() {
 		return { success: false, error: "No joined servers found." }
 
 	return { success: true, servers: JSON.parse(JSON.stringify(servers)) };
-}
-
-async function downloadFile(client: OAuth2Client, fileId: string) {
-
-	await refreshIfNeeded(client);
-	const accessToken = client.credentials.access_token;
-
-	const res = await fetch(
-		`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
-		{ headers: { Authorization: `Bearer ${accessToken}` } }
-	)
-
-	if (!res.ok)
-		throw new Error(await res.text())
-
-	return Buffer.from(await res.arrayBuffer())
-}
-
-async function downloadFolderRecursive(
-	client: OAuth2Client, 
-	folderId: string, 
-	localPath: string,
-	onProgress: (message: string, status?: "error" | "loading" | "done", importance?: "major" | "minor" ) => void
-) {
-	const items = await listFolderContents(client, folderId);
-
-	console.log("Items found:", items.length);
-
-	const SKIP_FILES = ["lock.json"];
-
-	for (const item of items) {
-		if (SKIP_FILES.includes(item.name)) continue;
-
-		const itemPath = path.join(localPath, item.name);
-
-		if (item.mimeType === "application/vnd.google-apps.folder") {
-			if (!fs.existsSync(itemPath))
-				fs.mkdirSync(itemPath);
-
-			await downloadFolderRecursive(client, item.id, itemPath, onProgress);
-		} else {
-			if (shouldDownloadFile(itemPath, item)) {
-				console.log("Downloading changed file:", item.name);
-				onProgress(`Downloading changed file: ${item.name}`, "loading")
-				const data = await downloadFile(client, item.id);
-				onProgress(`Downloaded ${item.name}`, "done")
-				fs.writeFileSync(itemPath, data);
-				if (item.modifiedTime)
-    				fs.utimesSync(itemPath, new Date(item.modifiedTime), new Date(item.modifiedTime));
-			} else {
-				onProgress(`Skipping unchanged file: ${item.name}`, "done")
-				console.log("Skipping unchanged file:", item.name);
-			}
-		}
-	}
-}
-
-export async function syncServer(
-	serverId: string,
-	onProgress: (message: string, status?: "error" | "loading" | "done", importance?: "major" | "minor") => void
-) {
-
-	console.log("Syncing folder:", serverId);
-	onProgress(`Downloading the drive folder...`, "loading", "major")
-
-	const client = getOAuthClient();
-	const targetPath = getServerPath(serverId);
-
-	if (!targetPath)
-		return { success: false, error: "No local path set." };
-
-	try {
-		if (!fs.existsSync(targetPath))
-			fs.mkdirSync(targetPath, { recursive: true });
-
-		await downloadFolderRecursive(client, serverId, targetPath, onProgress);
-		onProgress(`Drive folder downloaded.`, "done", "major")
-
-		return { success: true };
-
-	} catch (err: any) {
-		return { success: false, error: err.message };
-	}
-
-}
-
-async function uploadFile(
-	client: OAuth2Client, 
-	localFilePath: string, 
-	parentId: string,
-	onProgress: (message: string, status?: "error" | "loading" | "done", importance?: "major" | "minor") => void
-) {
-	await refreshIfNeeded(client);
-
-	const accessToken = client.credentials.access_token;
-	const fileName = path.basename(localFilePath);
-	const fileBuffer = fs.readFileSync(localFilePath);
-
-	// Fetch existing file with modifiedTime and size for comparison
-	const query = `'${parentId}' in parents and name='${fileName}' and trashed=false`;
-	const checkUrl = `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}&fields=files(id,modifiedTime,size)`;
-	const checkRes = await authorizedFetch(client, checkUrl);
-	const existing = checkRes.files?.[0];
-
-	// Skip if file hasn't changed
-	if (!shouldUploadFile(localFilePath, existing)) {
-		console.log("Skipping unchanged file:", fileName);
-		onProgress(`Skipping unchanged file: ${fileName}`, "done", "minor")
-		return;
-	}
-
-	console.log("Uploading changed file:", fileName);
-	onProgress(`Uploading changed file: ${fileName}`, "loading", "minor")
-	const metadata = JSON.stringify({ name: fileName, parents: existing ? undefined : [parentId] });
-	const boundary = "boundary_string";
-
-	const body = Buffer.concat([
-		Buffer.from(`--${boundary}\r\nContent-Type: application/json\r\n\r\n${metadata}\r\n`),
-		Buffer.from(`--${boundary}\r\nContent-Type: application/octet-stream\r\n\r\n`),
-		fileBuffer,
-		Buffer.from(`\r\n--${boundary}--`)
-	]);
-
-	const uploadUrl = existing
-		? `https://www.googleapis.com/upload/drive/v3/files/${existing.id}?uploadType=multipart`
-		: `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`;
-
-	const res = await fetch(uploadUrl, {
-		method: existing ? "PATCH" : "POST",
-		headers: {
-			Authorization: `Bearer ${accessToken}`,
-			"Content-Type": `multipart/related; boundary=${boundary}`
-		},
-		body
-	});
-
-	if (!res.ok){
-		onProgress(`Could not upload file: ${fileName}`, "error", "minor")
-		throw new Error(await res.text());
-	}
-		
-	onProgress(`Done uploading: ${fileName}`, "done", "minor")
-	const result = await res.json();
-
-	if (result.modifiedTime)
-    	fs.utimesSync(localFilePath, new Date(result.modifiedTime), new Date(result.modifiedTime));
-	
-	return result;
-}
-
-async function uploadFolderRecursive(
-	client: OAuth2Client, 
-	localPath: string, 
-	parentId: string,
-	onProgress: (message: string, status?: "error" | "loading" | "done", importance?: "major" | "minor") => void
-) {
-	const items = fs.readdirSync(localPath);
-
-	for (const item of items) {
-		const itemPath = path.join(localPath, item);
-		const stat = fs.statSync(itemPath);
-
-		if (stat.isDirectory()) {
-			// Check if folder already exists on Drive
-			const query = `'${parentId}' in parents and name='${item}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
-			const checkUrl = `${DRIVE_BASE_URL}?q=${encodeURIComponent(query)}&fields=files(id)`;
-			const checkRes = await authorizedFetch(client, checkUrl);
-
-			let folderId = checkRes.files?.[0]?.id;
-
-			if (!folderId)
-				folderId = await createFolder(client, item, parentId);
-
-			await uploadFolderRecursive(client, itemPath, folderId, onProgress);
-		} else {
-			await uploadFile(client, itemPath, parentId, onProgress);
-		}
-	}
-}
-
-export async function uploadServerFolder(
-	serverId: string,
-	onProgress: (message: string, status?: "error" | "loading" | "done", importance?: "major" | "minor") => void
-) {
-
-	const client = getOAuthClient();
-	const fromPath = getServerPath(serverId)
-
-	console.log("Uploading server folder:", fromPath);
-
-	if (!fromPath){
-		onProgress("Local server folder not found.", "error", "major")
-		return { success: false, error: "Local server folder not found." };
-	}
-
-	onProgress("Uploading the files to the drive.", "loading", "major")
-	try {
-		await uploadFolderRecursive(client, fromPath, serverId, onProgress);
-		return { success: true };
-	} catch (err: any) {
-		return { success: false, error: err.message };
-	}
-}
-
-function shouldDownloadFile(localPath: string, driveFile: any): boolean {
-    if (!fs.existsSync(localPath)) {
-        console.log(`DOWNLOAD: ${localPath} - file doesn't exist locally`);
-        return true;
-    }
-
-    const localStat = fs.statSync(localPath);
-    
-    if (!driveFile.size) {
-        console.log(`DOWNLOAD: ${path.basename(localPath)} - no size info from Drive`);
-        return true;
-    }
-
-    if (localStat.size !== parseInt(driveFile.size)) {
-        console.log(`DOWNLOAD: ${path.basename(localPath)} - size differs: local=${localStat.size} drive=${driveFile.size}`);
-        return true;
-    }
-
-    const driveModified = new Date(driveFile.modifiedTime).getTime();
-    if (driveModified > localStat.mtimeMs) {
-        console.log(`DOWNLOAD: ${path.basename(localPath)} - drive newer: drive=${new Date(driveFile.modifiedTime).toISOString()} local=${new Date(localStat.mtimeMs).toISOString()}`);
-        return true;
-    }
-
-    console.log(`SKIP: ${path.basename(localPath)}`);
-    return false;
-}
-
-function shouldUploadFile(localFilePath: string, driveFile: any): boolean {
-	//If file doesn't exist on drive then always upload
-	if (!driveFile)
-		return true;
-
-	const localStat = fs.statSync(localFilePath);
-
-	//If size differs then upload
-	if (localStat.size !== parseInt(driveFile.size))
-		return true;
-
-	//If local version is newer than drive then upload
-	const driveModified = new Date(driveFile.modifiedTime).getTime();
-	if (localStat.mtimeMs > driveModified)
-		return true;
-
-	return false;
 }
 
 export async function getFolderPermissions(folderId: string) {

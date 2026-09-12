@@ -67,10 +67,24 @@ export interface IStartupOptions {
 
 export interface IWatcherEntry {
     size: number,
-    changedAt: number
+    modifiedAt: number
 }
 
 export interface IWatcherUpdates {
     toAdd: Map<string,IWatcherEntry>
     toRemove: Map<string,IWatcherEntry>
+}
+
+export interface IManifestEntry {
+    version: number,
+    size: number,
+    modifiedAt: number
+}
+
+export interface IManifest {
+    version: number,
+    updatedAt: number,
+    authorName: string,
+    authorEmail: string,
+    files: Record<string, IManifestEntry>
 }

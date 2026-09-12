@@ -91,7 +91,7 @@ export default function ManifestModal({bufferType}: {bufferType: "upsert" | "rem
                             >
                                 <div className="file-name">{filePath}</div>
                                 <div className="file-size">{formatFileSize(value.size)}</div>
-                                <div className="file-time">{formatModifiedTime(value.changedAt)}</div>
+                                <div className="file-time">{formatModifiedTime(value.modifiedAt)}</div>
                             </li>
                         ))}
                     </ul>
@@ -131,7 +131,7 @@ export default function ManifestModal({bufferType}: {bufferType: "upsert" | "rem
                             >
                                 <div className="file-name">{filePath}</div>
                                 <div className="file-size">{formatFileSize(value.size)}</div>
-                                <div className="file-time">{formatModifiedTime(value.changedAt)}</div>
+                                <div className="file-time">{formatModifiedTime(value.modifiedAt)}</div>
                             </li>
                         ))}
                     </ul>
